@@ -33,6 +33,9 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+// include the library for the images loading
+#include <stb_image/stb_image.h>
+#include "tex_funs.h"
 // number of lights in the scene
 #define NR_LIGHTS 3
 
@@ -48,7 +51,7 @@ void apply_camera_movements();
 // index of the current shader subroutine (= 0 in the beginning)
 GLuint current_subroutine = 0;
 // a vector for all the shader subroutines names used and swapped in the application
-vector<std::string> shaders;
+vector<string> shaders;
 
 // the name of the subroutines are searched in the shaders, and placed in the shaders vector (to allow shaders swapping)
 void SetupShader(int shader_program);
@@ -56,6 +59,14 @@ void SetupShader(int shader_program);
 // print on console the name of current shader subroutine
 void PrintCurrentShader(int subroutine);
 
+// function to isolate the models rendering, which is called in the main rendering loop
+void RenderObjects(Shader &shader, Model* models, GLint render_pass, GLuint depthMap);
+
+// load image from disk and create an OpenGL texture, returning the texture ID
+//GLint LoadTextureCube(string path);
+
+// load any other texture TODO: try to use this function also for cube map sides
+//GLint LoadTexture(const char* path);
 // we initialize an array of booleans for each keyboard key
 bool keys[1024];
 
@@ -69,11 +80,6 @@ bool firstMouse = true;
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 GLfloat currentFrame = 0.0;
-
-// rotation angle on Y axis
-GLfloat orientationY = 0.0f;
-// rotation speed on Y axis
-GLfloat spin_speed = 30.0f;
 
 // boolean to activate/deactivate wireframe rendering
 GLboolean wireframe = GL_FALSE;
@@ -111,7 +117,10 @@ GLfloat planeMaterial[] = {0.0f,0.5f,0.0f};
 GLint pointLightLocation, matDiffuseLocation, matAmbientLocation, matSpecularLocation;  
 GLint kdLocation, kaLocation, ksLocation, shineLocation, alphaLocation, f0Location;
 
-
+// texture unit for cube map
+GLuint textureCube;
+// variables used to store uniform location for cube map in the shader
+GLint textureLocation;
 /////////////////// MAIN function ///////////////////////
 int main()
 {
@@ -163,7 +172,9 @@ int main()
 
     //the "clear" color for the frame buffer
     glClearColor(0.26f, 0.46f, 0.98f, 1.0f);
-
+    
+    // we create a shader program used for the enviroment mapping
+    Shader skybox_shader = Shader("shaders/skybox.vert", "shaders/skybox.frag");
     // we create the Shader Program used for objects (which presents different subroutines we can switch)
     Shader illumination_shader = Shader("shaders/illumination.vert", "shaders/illumination.frag");
     // we parse the Shader Program to search for the number and names of the subroutines.
@@ -172,9 +183,11 @@ int main()
     // we print on console the name of the first subroutine used
     PrintCurrentShader(current_subroutine);
 
+    // loading of the cube map 
+    textureCube = LoadTextureCube("textures/cube/skybox/");
+
     // we load the model(s) (code of Model class is in include/utils/model.h)
-    Model cubeModel("models/cube.obj");
-    Model sphereModel("models/sphere.obj");
+    Model cubeModel("models/cube.obj"); // used for the enviroment map
     Model bunnyModel("models/bunny_lp.obj");
     Model planeModel("models/plane.obj");
 
@@ -185,10 +198,6 @@ int main()
     glm::mat4 view = glm::mat4(1.0f);
 
     // Model and Normal transformation matrices for the objects in the scene: we set to identity
-    glm::mat4 sphereModelMatrix = glm::mat4(1.0f);
-    glm::mat3 sphereNormalMatrix = glm::mat3(1.0f);
-    glm::mat4 cubeModelMatrix = glm::mat4(1.0f);
-    glm::mat3 cubeNormalMatrix = glm::mat3(1.0f);
     glm::mat4 bunnyModelMatrix = glm::mat4(1.0f);
     glm::mat3 bunnyNormalMatrix = glm::mat3(1.0f);
     glm::mat4 planeModelMatrix = glm::mat4(1.0f);
@@ -214,11 +223,8 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // we set the rendering mode
-        if (wireframe)
-            // Draw in wireframe
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        else
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        // Draw in wireframe
+        glPolygonMode(GL_FRONT_AND_BACK, (wireframe ? GL_LINE : GL_FILL));
 
 
         /////////////////// PLANE ////////////////////////////////////////////////
@@ -228,6 +234,10 @@ int main()
         GLuint index = glGetSubroutineIndex(illumination_shader.Program, GL_FRAGMENT_SHADER, "BlinnPhong_ML");
         // we activate the subroutine using the index (this is where shaders swapping happens)
         glUniformSubroutinesuiv( GL_FRAGMENT_SHADER, 1, &index);
+
+        // we active the cube map texture and we bind it to the corresponding texture unit
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, textureCube);
 
         // we determine the position in the Shader Program of the uniform variables
         matDiffuseLocation = glGetUniformLocation(illumination_shader.Program, "diffuseColor");
@@ -239,6 +249,8 @@ int main()
         shineLocation = glGetUniformLocation(illumination_shader.Program, "shininess");
         alphaLocation = glGetUniformLocation(illumination_shader.Program, "alpha");
         f0Location = glGetUniformLocation(illumination_shader.Program, "F0");
+        textureLocation = glGetUniformLocation(illumination_shader.Program, "tCube");
+
 
          // we assign the value to the uniform variables
         glUniform3fv(matAmbientLocation, 1, ambientColor);
@@ -250,6 +262,8 @@ int main()
         glUniform1f(kaLocation, 0.0f);
         glUniform1f(kdLocation, 0.6f);
         glUniform1f(ksLocation, 0.0f);
+        
+        glUniform1i(textureLocation, 0);
 
         // we pass projection and view matrices to the Shader Program
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -272,7 +286,7 @@ int main()
         planeModelMatrix = glm::mat4(1.0f);
         planeNormalMatrix = glm::mat3(1.0f);
         planeModelMatrix = glm::translate(planeModelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
-        planeModelMatrix = glm::scale(planeModelMatrix, glm::vec3(10.0f, 1.0f, 10.0f));
+        //planeModelMatrix = glm::scale(planeModelMatrix, glm::vec3(10.0f, 1.0f, 10.0f));
         planeNormalMatrix = glm::inverseTranspose(glm::mat3(view*planeModelMatrix));
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(planeModelMatrix));
         glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(planeNormalMatrix));
@@ -294,54 +308,12 @@ int main()
         glUniform1f(ksLocation, Kd);
         glUniform1f(ksLocation, Ks);
 
-        // SPHERE
-        /*
-          we create the transformation matrix
-
-          N.B.) the last defined is the first applied
-
-          We need also the matrix for normals transformation, which is the inverse of the transpose of the 3x3 submatrix (upper left) of the modelview. We do not consider the 4th column because we do not need translations for normals.
-          An explanation (where XT means the transpose of X, etc):
-            "Two column vectors X and Y are perpendicular if and only if XT.Y=0. If We're going to transform X by a matrix M, we need to transform Y by some matrix N so that (M.X)T.(N.Y)=0. Using the identity (A.B)T=BT.AT, this becomes (XT.MT).(N.Y)=0 => XT.(MT.N).Y=0. If MT.N is the identity matrix then this reduces to XT.Y=0. And MT.N is the identity matrix if and only if N=(MT)-1, i.e. N is the inverse of the transpose of M.
-
-        */
-
-        // we reset to identity at each frame
-        sphereModelMatrix = glm::mat4(1.0f);
-        sphereNormalMatrix = glm::mat3(1.0f);
-        sphereModelMatrix = glm::translate(sphereModelMatrix, glm::vec3(-3.0f, 0.0f, 0.0f));
-        sphereModelMatrix = glm::rotate(sphereModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-        sphereModelMatrix = glm::scale(sphereModelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
-        // if we cast a mat4 to a mat3, we are automatically considering the upper left 3x3 submatrix
-        sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphereModelMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphereModelMatrix));
-        glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
-
-        // we render the sphere
-        sphereModel.Draw();
-
-        //CUBE
-        // we create the transformation matrix and the normals transformation matrix
-        // we reset to identity at each frame
-        cubeModelMatrix = glm::mat4(1.0f);
-        cubeNormalMatrix = glm::mat3(1.0f);
-        cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
-        cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-        cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
-        cubeNormalMatrix = glm::inverseTranspose(glm::mat3(view*cubeModelMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-        glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
-
-        // we render the cube
-        cubeModel.Draw();
-
         //BUNNY
         // we create the transformation matrix and the normals transformation matrix
         // we reset to identity at each frame
         bunnyModelMatrix = glm::mat4(1.0f);
         bunnyNormalMatrix = glm::mat3(1.0f);
         bunnyModelMatrix = glm::translate(bunnyModelMatrix, glm::vec3(3.0f, 0.0f, 0.0f));
-        bunnyModelMatrix = glm::rotate(bunnyModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
         bunnyModelMatrix = glm::scale(bunnyModelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
         bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunnyModelMatrix));
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyModelMatrix));
@@ -349,6 +321,33 @@ int main()
 
         // we render the bunny
         bunnyModel.Draw();
+
+        /////////////////// SKYBOX ////////////////////////////////////////////////
+        // we use the cube to attach the 6 textures of the environment map.
+        // we render it after all the other objects, in order to avoid the depth tests as much as possible.
+        // we will set, in the vertex shader for the skybox, all the values to the maximum depth. Thus, the environment map is rendered only where there are no other objects in the image (so, only on the background).
+        //Thus, we set the depth test to GL_LEQUAL, in order to let the fragments of the background pass the depth test (because they have the maximum depth possible, and the default setting is GL_LESS)
+        glDepthFunc(GL_LEQUAL);
+        skybox_shader.Use();
+        // we activate the cube map
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, textureCube);
+         // we pass projection and view matrices to the Shader Program of the skybox
+        glUniformMatrix4fv(glGetUniformLocation(skybox_shader.Program, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection));
+        // to have the background fixed during camera movements, we have to remove the translations from the view matrix
+        // thus, we consider only the top-left submatrix, and we create a new 4x4 matrix
+        view = glm::mat4(glm::mat3(view)); // Remove any translation component of the view matrix
+        glUniformMatrix4fv(glGetUniformLocation(skybox_shader.Program, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view));
+
+        // we determine the position in the Shader Program of the uniform variables
+        textureLocation = glGetUniformLocation(skybox_shader.Program, "tCube");
+        // we assign the value to the uniform variable
+        glUniform1i(textureLocation, 0);
+
+        // we render the cube with the environment map
+        cubeModel.Draw();
+        // we set again the depth test to the default operation for the next frame
+        glDepthFunc(GL_LESS);
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);
@@ -361,6 +360,8 @@ int main()
     glfwTerminate();
     return 0;
 }
+
+////////////////////////////FUNCTIONS DEFINITIONS //////////////////////////
 
 
 ///////////////////////////////////////////
