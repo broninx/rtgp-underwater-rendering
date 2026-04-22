@@ -40,7 +40,9 @@ class Model
 public:
     // at the end of loading, we will have a vector of Mesh class instances
     vector<Mesh> meshes;
-
+    //TODO: vector<Texture> textures_loaded; // we store all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
+    glm::mat4 modelMatrix = glm::mat4(1.0f); // we initialize the model matrix to the identity matrix, so that we can apply transformations to it later on if needed
+    glm::mat3 normalMatrix = glm::mat3(1.0f); // we initialize the normal matrix to the identity matrix, so that we can apply transformations to it later on if needed
     //////////////////////////////////////////
 
     // We want Model to be a move-only class. We delete copy constructor and copy assignment
@@ -81,7 +83,22 @@ public:
     }
 
     //////////////////////////////////////////
-
+    glm::mat4 GetModelMatrix()
+    {
+        return this->modelMatrix;
+    }
+    glm::mat3 GetNormalMatrix()
+    {
+        return this->normalMatrix;
+    }   
+    void SetModelMatrix(glm::mat4 modelMatrix)
+    {
+        this->modelMatrix = modelMatrix;
+    }   
+    void SetNormalMatrix(glm::mat3 normalMatrix)
+    {
+        this->normalMatrix = normalMatrix;
+    }
 
 private:
 

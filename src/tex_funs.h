@@ -4,9 +4,7 @@
 #include <iostream>
 #include <glad/glad.h>
 
-
-
-#define string std::string
+using namespace std;
 
 // load image from disk and create an OpenGL texture, returning the texture ID
 GLint LoadTextureCube(string path);
