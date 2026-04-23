@@ -38,7 +38,7 @@ const GLfloat SPEED      =  3.0f;
 // speed compensation in case of diagonal camera movement (= 1/sqrt(2))
 const GLfloat DIAGONAL_COMPENSATION = 0.70710678f;
 // parameter to weight mouse movement
-const GLfloat SENSITIVITY =  0.25f;
+const GLfloat SENSITIVITY =  0.1f;
 
 ///////////////////  CAMERA class ///////////////////////
 class Camera
@@ -78,6 +78,11 @@ public:
     glm::mat4 GetViewMatrix()
     {
         return glm::lookAt(this->Position, this->Position + this->Front, this->Up);
+    }
+
+    glm::mat4 GetViewProjMatrix(glm::mat4 projection)
+    {
+        return projection * this->GetViewMatrix();
     }
 
     //////////////////////////////////////////

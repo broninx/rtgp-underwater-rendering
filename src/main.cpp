@@ -33,8 +33,10 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "terrain.h"
+#include "triangleList.h"
+
 // include the library for the images loading
-#include <stb_image/stb_image.h>
 #include "tex_funs.h"
 // number of lights in the scene
 #define NR_LIGHTS 3
@@ -54,6 +56,9 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 // static int g_seed;
 
+enum SceneObj{ CUBE, BUNNY, PLANE }; 
+enum ShaderType{ NORMAL2COLOR, TERRAIN, SKYBOX, ILLUMINATION };
+
 // callback functions for keyboard and mouse events
 class Render
 {
@@ -69,8 +74,10 @@ private:
     GLboolean m_firstMouse = true;
     GLfloat m_deltaTime = 0.0f; // time between current frame and last frame
     GLfloat m_lastFrame = 0.0f; // time of last frame
+    GLfloat m_currentFrame = 0.0f; // time of current frame
+    Terrain m_terrain;
     int keys[1024];
-    // TODO: std::vector<Texture> m_textures;
+    // TODO: std::vector<Texture> m_textures; is rlly there or in Model class?
    
 
     void CreateWindow(){
@@ -97,6 +104,7 @@ private:
     }
     void InitShaders(){
         m_shaders.push_back(Shader("shaders/normal2color.vert", "shaders/normal2color.frag"));
+        m_shaders.push_back(Shader("shaders/terrain.vert", "shaders/terrain.frag"));
         // we create a shader program used for the enviroment mapping
         // m_shaders.push_back(Shader("shaders/skybox.vert", "shaders/skybox.frag"));
         // we create the Shader Program used for objects (which presents different subroutines we can switch)
@@ -111,7 +119,14 @@ private:
     }
 
     void InitTerrain(){
-
+        // we initialize the terrain
+        float terrainScale = 0.2f;
+        m_terrain.Init(terrainScale);
+        #ifdef WIN32
+            m_terrain.LoadFromFile("data\\heightmap.save");
+        #else
+            m_terrain.LoadFromFile("data/heightmap.save");
+        #endif
     }
 
 public:
@@ -152,19 +167,15 @@ public:
         glViewport(0, 0, width, height);
         m_projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDHT / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-        
         InitCallbacks();
-
-        
 
         InitShaders();
 
         InitModels();
 
-        // TODO: InitTerrain();
+        InitTerrain();
         // TODO: InitTextures();
 
-        
         glEnable(GL_DEPTH_TEST); //TODO: move this in the main funcion
         glClearColor(0.26f, 0.46f, 0.98f, 1.0f); //TODO: move this in the main funcion
         return 0;
@@ -174,17 +185,16 @@ public:
         while (!glfwWindowShouldClose(window))
         {
             // we calculate the time difference between the current frame and the last frame
-            GLfloat currentFrame = glfwGetTime();
-            m_deltaTime = currentFrame - m_lastFrame;
-            m_lastFrame = currentFrame;
+            m_currentFrame = glfwGetTime();
+            m_deltaTime = m_currentFrame - m_lastFrame;
+            m_lastFrame = m_currentFrame;
 
             // Check is an I/O event is happening
             glfwPollEvents();
+            // we apply the camera movements following the keys pressed
+            apply_camera_movements();
             // View matrix (=camera): position, view direction, camera "up" vector
             m_view = m_cam->GetViewMatrix();
-
-            // we "clear" the frame and z buffer
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // we set the rendering mode
             // Draw in wireframe
@@ -201,24 +211,32 @@ public:
 
     void RenderScene(){
         /////////////////// OBJECTS ////////////////////////////////////////////////
-        m_shaders[0].Use();
-        glUniformMatrix4fv(glGetUniformLocation(m_shaders[0].Program, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(m_view));
-        glUniformMatrix4fv(glGetUniformLocation(m_shaders[0].Program, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_projection));
-        //BUNNY
-        m_models[1].SetModelMatrix(glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, 0.0f)));
-        m_models[1].SetModelMatrix(glm::scale(m_models[1].GetModelMatrix(), glm::vec3(0.5f, 0.5f, 0.5f)));
-        m_models[1].SetNormalMatrix(glm::inverseTranspose(glm::mat3(m_view*m_models[1].GetModelMatrix())));
-        glUniformMatrix4fv(glGetUniformLocation(m_shaders[0].Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(m_models[1].GetModelMatrix()));
-        glUniformMatrix3fv(glGetUniformLocation(m_shaders[0].Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(m_models[1].GetNormalMatrix()));
-        // we render the bunny
-        m_models[1].Draw();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //TERRAIN//
+        m_shaders[TERRAIN].Use();
+        glm::mat4 viewProj = m_projection * m_view;
+        glUniformMatrix4fv(glGetUniformLocation(m_shaders[TERRAIN].Program, "gVP"), 1, GL_FALSE, glm::value_ptr(viewProj));
+        m_terrain.Render();
+
+        //BUNNY//
+        // m_shaders[NORMAL2COLOR].Use();
+        // glUniformMatrix4fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(m_view));
+        // glUniformMatrix4fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_projection));
+        // //BUNNY
+        // m_models[BUNNY].SetModelMatrix(glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, 0.0f)));
+        // m_models[BUNNY].SetModelMatrix(glm::scale(m_models[BUNNY].GetModelMatrix(), glm::vec3(0.5f, 0.5f, 0.5f)));
+        // m_models[BUNNY].SetNormalMatrix(glm::inverseTranspose(glm::mat3(m_view*m_models[BUNNY].GetModelMatrix())));
+        // glUniformMatrix4fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(m_models[BUNNY].GetModelMatrix()));
+        // glUniformMatrix3fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(m_models[BUNNY].GetNormalMatrix()));
+        // // we render the bunny
+        // m_models[BUNNY].Draw();
 
         /////////////////// SKYBOX ////////////////////////////////////////////////
 
     }
 
-    void KeyboardCB(uint key, int state){
-
+    void apply_camera_movements()
+    {
         // if a single WASD key is pressed, then we will apply the full value of velocity v in the corresponding direction.
         // However, if two keys are pressed together in order to move diagonally (W+D, W+A, S+D, S+A), 
         // then the camera will apply a compensation factor to the velocities applied in the single directions, 
@@ -226,31 +244,38 @@ public:
         // the XOR on A and D is to avoid the application of a wrong attenuation in the case W+A+D or S+A+D are pressed together.  
         GLboolean diagonal_movement = (keys[GLFW_KEY_W] ^ keys[GLFW_KEY_S]) && (keys[GLFW_KEY_A] ^ keys[GLFW_KEY_D]); 
         m_cam->SetMovementCompensation(diagonal_movement);
+        
+        if(keys[GLFW_KEY_W])
+            m_cam->ProcessKeyboard(FORWARD, m_deltaTime);
+        if(keys[GLFW_KEY_S])
+            m_cam->ProcessKeyboard(BACKWARD, m_deltaTime);
+        if(keys[GLFW_KEY_A])
+            m_cam->ProcessKeyboard(LEFT, m_deltaTime);
+        if(keys[GLFW_KEY_D])
+            m_cam->ProcessKeyboard(RIGHT, m_deltaTime);
+        if(keys[GLFW_KEY_SPACE])
+            m_cam->ProcessKeyboard(UP, m_deltaTime);
+        if(keys[GLFW_KEY_LEFT_CONTROL])
+            m_cam->ProcessKeyboard(DOWN, m_deltaTime);
+    }
+
+    void KeyboardCB(uint key, int state){
 
         if (key == GLFW_KEY_ESCAPE && state == GLFW_PRESS)
             glfwSetWindowShouldClose(window, GL_TRUE);
-
-        if (key == GLFW_KEY_W && state == GLFW_PRESS)
-            m_cam->ProcessKeyboard(FORWARD, m_deltaTime);
-
-        if (key == GLFW_KEY_S && state == GLFW_PRESS)
-            m_cam->ProcessKeyboard(BACKWARD, m_deltaTime);
-
-        if (key == GLFW_KEY_A && state == GLFW_PRESS)
-            m_cam->ProcessKeyboard(LEFT, m_deltaTime);
-
-        if (key == GLFW_KEY_D && state == GLFW_PRESS)
-            m_cam->ProcessKeyboard(RIGHT, m_deltaTime);
-
-        if (key == GLFW_KEY_SPACE && state == GLFW_PRESS)
-            m_cam->ProcessKeyboard(UP, m_deltaTime);
-
-        if (key == GLFW_KEY_LEFT_CONTROL && state == GLFW_PRESS)
-            m_cam->ProcessKeyboard(DOWN, m_deltaTime);
-
+        
         if (key == GLFW_KEY_F && state == GLFW_PRESS)            
             m_isWireframe = !m_isWireframe;
-        
+
+        // we keep trace of the pressed keys
+        // with this method, we can manage 2 keys pressed at the same time:
+        // many I/O managers often consider only 1 key pressed at the time (the first pressed, until it is released)
+        // using a boolean array, we can then check and manage all the keys pressed at the same time
+        if(state == GLFW_PRESS)
+            keys[key] = true;
+        else if(state == GLFW_RELEASE)
+            keys[key] = false;
+
     }
 
     void MouseCB(int button, int action, int xpos, int ypos){
@@ -266,7 +291,7 @@ public:
 
         // offset of mouse cursor position
         GLfloat xoffset = xpos - m_lastX;
-        GLfloat yoffset = m_lastY - ypos;
+        GLfloat yoffset = m_lastY - ypos; // we invert the y offset because we want that a movement of the mouse upwards corresponds to a positive y offset, and vice versa
 
         // the new position will be the previous one for the next frame
         m_lastX = xpos;
