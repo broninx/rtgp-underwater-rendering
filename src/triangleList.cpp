@@ -40,12 +40,17 @@ void TriangleList::CreateGLState()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ib);
 
 	int POS_LOC = 0;
+	int TEX_LOC = 1;
 
 	size_t NumFloats = 0;
 	
 	glEnableVertexAttribArray(POS_LOC);
 	glVertexAttribPointer(POS_LOC, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(NumFloats * sizeof(float)));
 	NumFloats += 3;
+
+	glEnableVertexAttribArray(TEX_LOC);
+	glVertexAttribPointer(TEX_LOC, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(NumFloats * sizeof(float)));
+	NumFloats += 2;
 }
 
 void TriangleList::PopulateBuffers(const Terrain* pTerrain)
@@ -74,6 +79,9 @@ void TriangleList::Vertex::InitVertex(const Terrain* pTerrain, int x, int z)
 	float WorldScale = pTerrain->GetWorldScale();
 
 	Pos = vec3(x * WorldScale, y, z * WorldScale);
+
+	float Size = (float) pTerrain->GetSize();
+	Tex = vec2(x / Size, y / Size);
 }
 
 void TriangleList::InitVertices(const Terrain* pTerrain, std::vector<Vertex>& Vertices)

@@ -22,7 +22,7 @@ private:
 
 	struct Vertex {
 		glm::vec3 Pos;
-
+		glm::vec2 Tex;
 		void InitVertex(const Terrain* pTerrain, int x, int z);
 	};
 

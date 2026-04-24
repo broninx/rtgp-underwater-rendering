@@ -35,15 +35,15 @@
 
 #include "terrain.h"
 #include "triangleList.h"
+#include "midpoint_disp.h"
 
 // include the library for the images loading
-#include "tex_funs.h"
 // number of lights in the scene
 #define NR_LIGHTS 3
 #define SAFE_DELETE(p) { if(p) { delete p; p = nullptr; } }
 // dimensions of the window
-#define SCR_WIDHT 1200
-#define SCR_HEIGHT 900
+#define SCR_WIDHT 1920
+#define SCR_HEIGHT 1080
 
 // boolean to activate/deactivate wireframe rendering
 GLboolean wireframe = GL_FALSE;
@@ -57,8 +57,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 // static int g_seed;
 
 enum SceneObj{ CUBE, BUNNY, PLANE }; 
-enum ShaderType{ NORMAL2COLOR, TERRAIN, SKYBOX, ILLUMINATION };
-
+enum ShaderType{ NORMAL2COLOR, TERRAIN };
+enum Textures {SANDTERRAIN};
 // callback functions for keyboard and mouse events
 class Render
 {
@@ -68,6 +68,7 @@ private:
     GLboolean m_isWireframe = false;
     std::vector<Model> m_models;
     std::vector<Shader> m_shaders;
+    std::vector<Texture> m_textures; 
     glm::mat4 m_view = glm::mat4(1.0f);
     glm::mat4 m_projection = glm::mat4(1.0f);
     GLint m_lastX, m_lastY;
@@ -75,9 +76,9 @@ private:
     GLfloat m_deltaTime = 0.0f; // time between current frame and last frame
     GLfloat m_lastFrame = 0.0f; // time of last frame
     GLfloat m_currentFrame = 0.0f; // time of current frame
-    Terrain m_terrain;
+    MidpointDispTerrain m_terrain;
     int keys[1024];
-    // TODO: std::vector<Texture> m_textures; is rlly there or in Model class?
+    int counter = 0;
    
 
     void CreateWindow(){
@@ -118,15 +119,21 @@ private:
         m_models.push_back(Model("models/plane.obj"));
     }
 
+    void InitTextures(){
+        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/sand.jpg"));
+        m_textures[SANDTERRAIN].Load();
+    }
+
     void InitTerrain(){
         // we initialize the terrain
-        float terrainScale = 0.2f;
+        float terrainScale = 1.0f;
         m_terrain.Init(terrainScale);
-        #ifdef WIN32
-            m_terrain.LoadFromFile("data\\heightmap.save");
-        #else
-            m_terrain.LoadFromFile("data/heightmap.save");
-        #endif
+
+        int size = 256;
+        float roughness = 1.0f;
+        float minHeight = 0.0f;
+        float maxHeight = 100.0f;
+        m_terrain.CreateMidpointDisplacement(size, roughness, minHeight, maxHeight);
     }
 
 public:
@@ -154,6 +161,9 @@ public:
         }
         glfwMakeContextCurrent(window);
 
+        // Disable V-Sync
+        glfwSwapInterval(0);
+
         // GLAD tries to load the context set by GLFW
         if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress))
         {
@@ -165,7 +175,7 @@ public:
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
-        m_projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDHT / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        m_projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDHT / (float)SCR_HEIGHT, 0.1f, 1000.0f);
 
         InitCallbacks();
 
@@ -174,7 +184,7 @@ public:
         InitModels();
 
         InitTerrain();
-        // TODO: InitTextures();
+        InitTextures();
 
         glEnable(GL_DEPTH_TEST); //TODO: move this in the main funcion
         glClearColor(0.26f, 0.46f, 0.98f, 1.0f); //TODO: move this in the main funcion
@@ -187,8 +197,16 @@ public:
             // we calculate the time difference between the current frame and the last frame
             m_currentFrame = glfwGetTime();
             m_deltaTime = m_currentFrame - m_lastFrame;
-            m_lastFrame = m_currentFrame;
-
+            counter++;
+            if(m_deltaTime >= 1.0f / 30.0f)
+            {
+                std::string FPS = std::to_string((1.0f / m_deltaTime) * counter);
+                std::string ms = std::to_string((m_deltaTime / counter) * 100.0f);
+                std::string title = "rtgp-underwater-rendering - " + FPS + " FPS, " + ms + " ms";
+                glfwSetWindowTitle(window, title.c_str());
+                counter = 0;
+                m_lastFrame = m_currentFrame;
+            }
             // Check is an I/O event is happening
             glfwPollEvents();
             // we apply the camera movements following the keys pressed
@@ -210,12 +228,19 @@ public:
     }
 
     void RenderScene(){
-        /////////////////// OBJECTS ////////////////////////////////////////////////
+        glm::mat4 viewProj = m_projection * m_view;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        /////////////////// OBJECTS ////////////////////////////////////////////////
+
         //TERRAIN//
         m_shaders[TERRAIN].Use();
-        glm::mat4 viewProj = m_projection * m_view;
+    
         glUniformMatrix4fv(glGetUniformLocation(m_shaders[TERRAIN].Program, "gVP"), 1, GL_FALSE, glm::value_ptr(viewProj));
+        glUniform1f(glGetUniformLocation(m_shaders[TERRAIN].Program, "gMinHeight"), m_terrain.GetMinHeight());
+        glUniform1f(glGetUniformLocation(m_shaders[TERRAIN].Program, "gMaxHeight"), m_terrain.GetMaxHeight());
+        m_textures[SANDTERRAIN].Bind(GL_TEXTURE0);
+        GLint texLoc = glGetUniformLocation(m_shaders[TERRAIN].Program, "gTexture");
+        glUniform1i(texLoc, SANDTERRAIN);
         m_terrain.Render();
 
         //BUNNY//
