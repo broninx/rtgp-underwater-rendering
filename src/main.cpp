@@ -79,6 +79,7 @@ private:
     MidpointDispTerrain m_terrain;
     int keys[1024];
     int counter = 0;
+    glm::vec3 lightDir = glm::vec3(0.5f, -1.0f, 0.5f);
    
 
     void CreateWindow(){
@@ -106,21 +107,17 @@ private:
     void InitShaders(){
         m_shaders.push_back(Shader("shaders/normal2color.vert", "shaders/normal2color.frag"));
         m_shaders.push_back(Shader("shaders/terrain.vert", "shaders/terrain.frag"));
-        // we create a shader program used for the enviroment mapping
-        // m_shaders.push_back(Shader("shaders/skybox.vert", "shaders/skybox.frag"));
-        // we create the Shader Program used for objects (which presents different subroutines we can switch)
-        // m_shaders.push_back(Shader("shaders/illumination.vert", "shaders/illumination.frag"));
     }
 
     void InitModels(){
         // we load the model(s) (code of Model class is in include/utils/model.h)
-        m_models.push_back(Model("models/cube.obj")); // used for the enviroment map
-        m_models.push_back(Model("models/bunny_lp.obj"));
-        m_models.push_back(Model("models/plane.obj"));
+        // m_models.push_back(Model("models/cube.obj")); // used for the enviroment map
+        // m_models.push_back(Model("models/bunny_lp.obj"));
+        // m_models.push_back(Model("models/plane.obj"));
     }
 
     void InitTextures(){
-        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/sand.jpg"));
+        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/SoilCracked.png"));
         m_textures[SANDTERRAIN].Load();
     }
 
@@ -129,7 +126,7 @@ private:
         float terrainScale = 1.0f;
         m_terrain.Init(terrainScale);
 
-        int size = 256;
+        int size = 1024;
         float roughness = 1.0f;
         float minHeight = 0.0f;
         float maxHeight = 100.0f;
@@ -149,7 +146,7 @@ public:
 
         // we create a camera. We pass the initial position as a parameter to the constructor. 
         //The last boolean tells that we want a camera "anchored" to the ground
-        m_cam = new Camera(glm::vec3(0.0f, 0.0f, 7.0f), GL_FALSE);
+        m_cam = new Camera(glm::vec3(0.0f, 0.0f, 3.0f), GL_FALSE);
         
         glfwInit();
 
@@ -186,6 +183,7 @@ public:
         InitTerrain();
         InitTextures();
 
+        glFrontFace(GL_CW);
         glEnable(GL_DEPTH_TEST); //TODO: move this in the main funcion
         glClearColor(0.26f, 0.46f, 0.98f, 1.0f); //TODO: move this in the main funcion
         return 0;
@@ -194,6 +192,7 @@ public:
     void Run(){
         while (!glfwWindowShouldClose(window))
         {
+            
             // we calculate the time difference between the current frame and the last frame
             m_currentFrame = glfwGetTime();
             m_deltaTime = m_currentFrame - m_lastFrame;
@@ -228,6 +227,9 @@ public:
     }
 
     void RenderScene(){
+        static float foo = 0.00f;
+        foo += 0.0002f;
+        lightDir = glm::vec3(sinf(foo * 0.5f), cosf(foo), cosf(foo * 0.5f));
         glm::mat4 viewProj = m_projection * m_view;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         /////////////////// OBJECTS ////////////////////////////////////////////////
@@ -239,22 +241,13 @@ public:
         glUniform1f(glGetUniformLocation(m_shaders[TERRAIN].Program, "gMinHeight"), m_terrain.GetMinHeight());
         glUniform1f(glGetUniformLocation(m_shaders[TERRAIN].Program, "gMaxHeight"), m_terrain.GetMaxHeight());
         m_textures[SANDTERRAIN].Bind(GL_TEXTURE0);
-        GLint texLoc = glGetUniformLocation(m_shaders[TERRAIN].Program, "gTexture");
+        GLint texLoc = glGetUniformLocation(m_shaders[TERRAIN].Program, "gTerrainTexture");
         glUniform1i(texLoc, SANDTERRAIN);
-        m_terrain.Render();
 
-        //BUNNY//
-        // m_shaders[NORMAL2COLOR].Use();
-        // glUniformMatrix4fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(m_view));
-        // glUniformMatrix4fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_projection));
-        // //BUNNY
-        // m_models[BUNNY].SetModelMatrix(glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, 0.0f)));
-        // m_models[BUNNY].SetModelMatrix(glm::scale(m_models[BUNNY].GetModelMatrix(), glm::vec3(0.5f, 0.5f, 0.5f)));
-        // m_models[BUNNY].SetNormalMatrix(glm::inverseTranspose(glm::mat3(m_view*m_models[BUNNY].GetModelMatrix())));
-        // glUniformMatrix4fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(m_models[BUNNY].GetModelMatrix()));
-        // glUniformMatrix3fv(glGetUniformLocation(m_shaders[NORMAL2COLOR].Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(m_models[BUNNY].GetNormalMatrix()));
-        // // we render the bunny
-        // m_models[BUNNY].Draw();
+        glm::vec3 ReversedLightDir = lightDir * -1.0f;
+        ReversedLightDir = glm::normalize(ReversedLightDir);
+        glUniform3fv(glGetUniformLocation(m_shaders[TERRAIN].Program, "gReversedLightDir"), 1, glm::value_ptr(ReversedLightDir));
+        m_terrain.Render();
 
         /////////////////// SKYBOX ////////////////////////////////////////////////
 

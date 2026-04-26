@@ -35,7 +35,7 @@ void Texture::Load()
     glTexParameteri(m_target, GL_TEXTURE_WRAP_T, GL_REPEAT);
     // we set the filtering for minification and magnification
     glTexParameteri(m_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(m_target, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(m_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // we free the memory once we have created an OpenGL texture
     stbi_image_free(image);

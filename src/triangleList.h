@@ -23,6 +23,7 @@ private:
 	struct Vertex {
 		glm::vec3 Pos;
 		glm::vec2 Tex;
+		glm::vec3 Normal = glm::vec3(0.0f, 0.0f, 0.0f);
 		void InitVertex(const Terrain* pTerrain, int x, int z);
 	};
 
@@ -31,6 +32,7 @@ private:
 	void PopulateBuffers(const Terrain* pTerrain);
 	void InitVertices(const Terrain* pTerrain, std::vector<Vertex>& Vertices);
 	void InitIndices(std::vector<uint>& Indices);
+	void CalcNormals(std::vector<Vertex>& Vertices, std::vector<uint>& Indices);
 
 	int m_width = 0;
 	int m_depth = 0;
