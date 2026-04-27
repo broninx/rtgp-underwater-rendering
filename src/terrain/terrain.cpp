@@ -11,13 +11,26 @@
 
 #include "terrain.h"
 
+Terrain::~Terrain()
+{
+    Destroy();
+}
+
+
+void Terrain::Destroy()
+{
+    m_heightMap.Destroy();
+    m_geomipGrid.Destroy();
+}
+
+
 void Terrain::Init(float WorldScale){
     m_worldScale = WorldScale;
 }
 
 void Terrain::LoadFromFile(const char* pFilename){
     LoadHeightMapFile(pFilename);
-    m_triangleList.CreateTriangleList(m_terrainSize, m_terrainSize, this);
+    m_geomipGrid.CreateGeomipGrid(m_terrainSize, m_terrainSize, m_patchSize, this);
 }
 
 void Terrain::LoadHeightMapFile(const char* pFilename)
@@ -42,7 +55,12 @@ void Terrain::LoadHeightMapFile(const char* pFilename)
     m_heightMap.InitArray2D(m_terrainSize, m_terrainSize, (float*)p);
 }
 
-void Terrain::Render()
+void Terrain::Finalize() 
 {
-    m_triangleList.Render();
+    m_geomipGrid.CreateGeomipGrid(m_terrainSize, m_terrainSize, m_patchSize, this);
+}
+
+void Terrain::Render(const glm::vec3& CameraPos)
+{
+    m_geomipGrid.Render(CameraPos);
 }

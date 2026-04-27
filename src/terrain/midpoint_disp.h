@@ -1,13 +1,14 @@
 #pragma once
 
 #include "terrain.h"
+#include "lod_manager.h"
 
 class MidpointDispTerrain : public Terrain {
 
  public:
     MidpointDispTerrain() {}
 
-    void CreateMidpointDisplacement(int Size, float Roughness, float MinHeight, float MaxHeight);
+    void CreateMidpointDisplacement(int Size, int PatchSize, float Roughness, float MinHeight, float MaxHeight);
 
  private:
     void CreateMidpointDisplacementF32(float Roughness);

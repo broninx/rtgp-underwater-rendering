@@ -30,7 +30,7 @@ enum Camera_Movement {
 
 // Default camera settings
 // Initial camera orientation on Y and X (Z not considered)
-const GLfloat YAW        = -90.0f; //Y
+const GLfloat YAW        = 0.0f; //Y
 const GLfloat PITCH      =  0.0f; //X
 
 // speed of camera movement
@@ -145,6 +145,10 @@ public:
         this->UpdateCameraVectors();
     }
 
+    glm::vec3 getCamPos()
+    {
+        return this->Position;
+    }
 private:
     //////////////////////////////////////////
     // it updates the camera reference system

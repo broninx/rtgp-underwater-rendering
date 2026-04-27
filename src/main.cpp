@@ -33,9 +33,8 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "terrain.h"
-#include "triangleList.h"
-#include "midpoint_disp.h"
+#include "terrain/geomip_grid.h"
+#include "terrain/midpoint_disp.h"
 
 // include the library for the images loading
 // number of lights in the scene
@@ -44,6 +43,14 @@
 // dimensions of the window
 #define SCR_WIDHT 1920
 #define SCR_HEIGHT 1080
+#define TERRAIN_SIZE 1025
+#define ROUGHNESS_TERR 1.0f
+#define MAX_HEIGHT_TERR 100.0f
+#define MIN_HEIGHT_TERR 0.0f
+#define TERRAIN_SCALE 1.0f
+#define STARTING_X (TERRAIN_SIZE - 1 ) / 2
+#define STARTING_Z (TERRAIN_SIZE - 1 ) / 2
+#define STARTING_Y MAX_HEIGHT_TERR
 
 // boolean to activate/deactivate wireframe rendering
 GLboolean wireframe = GL_FALSE;
@@ -51,7 +58,6 @@ GLboolean wireframe = GL_FALSE;
 // callback functions for keyboard and mouse events
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-
 
 
 // static int g_seed;
@@ -123,14 +129,10 @@ private:
 
     void InitTerrain(){
         // we initialize the terrain
-        float terrainScale = 1.0f;
-        m_terrain.Init(terrainScale);
+        m_terrain.Init(TERRAIN_SCALE);
 
-        int size = 1024;
-        float roughness = 1.0f;
-        float minHeight = 0.0f;
-        float maxHeight = 100.0f;
-        m_terrain.CreateMidpointDisplacement(size, roughness, minHeight, maxHeight);
+        int patchSize = 33;
+        m_terrain.CreateMidpointDisplacement(TERRAIN_SIZE, patchSize, ROUGHNESS_TERR, MIN_HEIGHT_TERR, MAX_HEIGHT_TERR);
     }
 
 public:
@@ -146,7 +148,7 @@ public:
 
         // we create a camera. We pass the initial position as a parameter to the constructor. 
         //The last boolean tells that we want a camera "anchored" to the ground
-        m_cam = new Camera(glm::vec3(0.0f, 0.0f, 3.0f), GL_FALSE);
+        m_cam = new Camera(glm::vec3(STARTING_X, STARTING_Y, STARTING_Z), GL_FALSE);
         
         glfwInit();
 
@@ -181,6 +183,7 @@ public:
         InitModels();
 
         InitTerrain();
+
         InitTextures();
 
         glFrontFace(GL_CW);
@@ -228,8 +231,8 @@ public:
 
     void RenderScene(){
         static float foo = 0.00f;
-        foo += 0.0002f;
-        lightDir = glm::vec3(sinf(foo * 0.5f), cosf(foo), cosf(foo * 0.5f));
+        foo += 0.00002f;
+        lightDir = glm::vec3(sinf(foo * 0.5f), cosf(foo * 0.5f), cosf(foo));
         glm::mat4 viewProj = m_projection * m_view;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         /////////////////// OBJECTS ////////////////////////////////////////////////
@@ -247,7 +250,7 @@ public:
         glm::vec3 ReversedLightDir = lightDir * -1.0f;
         ReversedLightDir = glm::normalize(ReversedLightDir);
         glUniform3fv(glGetUniformLocation(m_shaders[TERRAIN].Program, "gReversedLightDir"), 1, glm::value_ptr(ReversedLightDir));
-        m_terrain.Render();
+        m_terrain.Render(m_cam->getCamPos());
 
         /////////////////// SKYBOX ////////////////////////////////////////////////
 
@@ -280,7 +283,11 @@ public:
     void KeyboardCB(uint key, int state){
 
         if (key == GLFW_KEY_ESCAPE && state == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, GL_TRUE);
+        {
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            exit(0);
+        }
         
         if (key == GLFW_KEY_F && state == GLFW_PRESS)            
             m_isWireframe = !m_isWireframe;
