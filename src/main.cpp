@@ -148,7 +148,7 @@ public:
 
         // we create a camera. We pass the initial position as a parameter to the constructor. 
         //The last boolean tells that we want a camera "anchored" to the ground
-        m_cam = new Camera(glm::vec3(STARTING_X, STARTING_Y, STARTING_Z), GL_FALSE);
+        m_cam = new Camera(glm::vec3(STARTING_X, STARTING_Y, STARTING_Z));
         
         glfwInit();
 
@@ -265,19 +265,20 @@ public:
         // the XOR on A and D is to avoid the application of a wrong attenuation in the case W+A+D or S+A+D are pressed together.  
         GLboolean diagonal_movement = (keys[GLFW_KEY_W] ^ keys[GLFW_KEY_S]) && (keys[GLFW_KEY_A] ^ keys[GLFW_KEY_D]); 
         m_cam->SetMovementCompensation(diagonal_movement);
-        
+        float worldHeight = m_terrain.GetWorldHeight(m_cam->getCamPos().x, m_cam->getCamPos().z);
+        float worldSize = m_terrain.GetWorldSize();
         if(keys[GLFW_KEY_W])
-            m_cam->ProcessKeyboard(FORWARD, m_deltaTime);
+            m_cam->ProcessKeyboard(FORWARD, m_deltaTime , worldSize, worldHeight);
         if(keys[GLFW_KEY_S])
-            m_cam->ProcessKeyboard(BACKWARD, m_deltaTime);
+            m_cam->ProcessKeyboard(BACKWARD, m_deltaTime , worldSize, worldHeight);
         if(keys[GLFW_KEY_A])
-            m_cam->ProcessKeyboard(LEFT, m_deltaTime);
+            m_cam->ProcessKeyboard(LEFT, m_deltaTime , worldSize, worldHeight);
         if(keys[GLFW_KEY_D])
-            m_cam->ProcessKeyboard(RIGHT, m_deltaTime);
+            m_cam->ProcessKeyboard(RIGHT, m_deltaTime , worldSize, worldHeight);
         if(keys[GLFW_KEY_SPACE])
-            m_cam->ProcessKeyboard(UP, m_deltaTime);
+            m_cam->ProcessKeyboard(UP, m_deltaTime , worldSize, worldHeight);
         if(keys[GLFW_KEY_LEFT_CONTROL])
-            m_cam->ProcessKeyboard(DOWN, m_deltaTime);
+            m_cam->ProcessKeyboard(DOWN, m_deltaTime , worldSize, worldHeight);
     }
 
     void KeyboardCB(uint key, int state){

@@ -51,7 +51,6 @@ public:
     glm::vec3 Up; // camera local UP vector
     glm::vec3 Right;
     glm::vec3 WorldUp; //  camera world UP vector -> needed for the initial computation of Right vector
-    GLboolean onGround; // it defines if the camera is "anchored" to the ground, or if it strictly follows the current Front direction (even if this means that the camera "flies" in the scene)
     // N.B.) this version works only for flat terrains
     // Eular Angles
     GLfloat Yaw;
@@ -65,8 +64,8 @@ public:
     //////////////////////////////////////////
     // simplified constructor
     // it can be extended passing different values of speed and mouse sensitivity, etc...
-    Camera(glm::vec3 position, GLboolean onGround)
-        :Position(position),onGround(onGround),Yaw(YAW),Pitch(PITCH),MovementSpeed(SPEED),MouseSensitivity(SENSITIVITY)
+    Camera(glm::vec3 position)
+        :Position(position), Yaw(YAW),Pitch(PITCH),MovementSpeed(SPEED),MouseSensitivity(SENSITIVITY)
     {
         this->WorldUp = glm::vec3(0.0f,1.0f,0.0f);
         // initialization of the camera reference system
@@ -97,7 +96,7 @@ public:
 
     //////////////////////////////////////////
     // it updates camera position when a WASD key is pressed
-    void ProcessKeyboard(Camera_Movement direction, GLfloat deltaTime)
+    void ProcessKeyboard(Camera_Movement direction, GLfloat deltaTime, int worldSize, float worldHeight)
     {        
         // the velocity is weighted by a compensation factor
         // = 1 if a single WASD is pressed
@@ -105,9 +104,9 @@ public:
         GLfloat velocity = this->MovementSpeed * deltaTime * this->MovementCompensation;
 
         if (direction == FORWARD)
-            this->Position += (this->onGround ? this->WorldFront : this->Front) * velocity;
+            this->Position += this->Front * velocity;
         if (direction == BACKWARD)
-            this->Position -= (this->onGround ? this->WorldFront : this->Front) * velocity;
+            this->Position -= this->Front * velocity;
         if (direction == LEFT)
             this->Position -= this->Right * velocity;
         if (direction == RIGHT)
@@ -117,6 +116,24 @@ public:
         if (direction == DOWN)
             this->Position -= this->WorldUp * velocity;
         
+        
+        if (this->Position.x < 0.0f)
+            this->Position.x = 0.0f;
+
+        if (this->Position.z < 0.0f)
+            this->Position.z = 0.0f;
+            
+        if (this->Position.x >= worldSize)
+            this->Position.x = worldSize - 0.5f;
+
+        if (this->Position.z >= worldSize)
+            this->Position.z = worldSize - 0.5f;
+
+        if (this->Position.y < worldHeight + Up.y)
+            this->Position.y = worldHeight + Up.y;
+
+        if (this->Position.y >= worldHeight + 1000.0f)
+            this->Position.y = worldHeight + 1000.0f;
     }
 
     //////////////////////////////////////////
