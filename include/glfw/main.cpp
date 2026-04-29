@@ -60,8 +60,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 // static int g_seed;
 
-enum SceneObj{ CUBE, CATFISH }; 
-enum ShaderType{ TERRAIN, GENERAL, SKYBOX };
+enum SceneObj{ CUBE }; 
+enum ShaderType{ DAY, NIGHT, SKYBOX };
 enum Textures {SANDTERRAIN};
 // callback functions for keyboard and mouse events
 class Render
@@ -109,8 +109,8 @@ private:
 
     }
     void InitShaders(){
-        m_shaders.push_back(Shader("shaders/terrain.vert", "shaders/terrain.frag"));
-        m_shaders.push_back(Shader("shaders/general.vert", "shaders/general.frag"));
+        m_shaders.push_back(Shader("shaders/day.vert", "shaders/day.frag"));
+        m_shaders.push_back(Shader("shaders/night.vert", "shaders/night.frag"));
         m_shaders.push_back(Shader("shaders/skybox.vs", "shaders/skybox.fs"));
     }
 
@@ -118,16 +118,13 @@ private:
 
         // we load the model(s) (code of Model class is in include/utils/model.h)
         m_models.push_back(Model("models/cube.obj")); // used for the enviroment map
-        m_models.push_back(Model("models/catfish_obj/catfishRawModel.obj"));
-        m_models[CATFISH].SetModelMatrix(glm::translate(m_models[CATFISH].GetModelMatrix(), glm::vec3(1000.0f, 200.0f, 1000.0f)));
+        // m_models.push_back(Model("models/bunny_lp.obj"));
         // m_models.push_back(Model("models/plane.obj"));
     }
 
     void InitTextures(){
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/sand_white.png"));
         m_textures[SANDTERRAIN].Load();
-        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/catfish.png"));
-        m_textures[CATFISH].Load();
     }
 
     void InitTerrain(){
@@ -255,8 +252,16 @@ public:
 
         GLuint prog;
         bool isDay = false;
-        if (verticalAngle >= 180.5f){ isDay = true; }
-
+        if (verticalAngle >= 180.5f)
+        {
+            m_shaders[DAY].Use();
+            prog = m_shaders[DAY].Program;
+            isDay = true;
+        } else
+        {
+            m_shaders[NIGHT].Use();
+            prog = m_shaders[NIGHT].Program;
+        }
         /////////////////// FOG /////////////////////////////////////////////////
 
         glEnable(GL_FOG);
@@ -266,44 +271,15 @@ public:
         glFogf(GL_FOG_DENSITY, 0.5f);
     
         /////////////////// OBJECTS ////////////////////////////////////////////////
-        m_shaders[GENERAL].Use();
 
-        prog = m_shaders[GENERAL].Program;
-
-        m_textures[CATFISH].Bind(GL_TEXTURE_2D);
-        GLint texLocation = glGetUniformLocation(prog, "gTexture");
-        glUniform1i(texLocation, 0);
-
-        GLint modelLoc = glGetUniformLocation(prog, "modelMatrix");
-        GLint normalLoc = glGetUniformLocation(prog, "normalMatrix");
-        GLint viewLoc = glGetUniformLocation(prog, "viewMatrix");
-        GLint projLoc = glGetUniformLocation(prog, "projectionMatrix");
-
-
-        // CATFISHES //
-
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m_models[CATFISH].GetModelMatrix()));
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(m_view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(m_projection));
-
-        glm::mat4 normal = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -2.0f, 0.0f));
-        glUniformMatrix4fv(normalLoc, 1, GL_FALSE, glm::value_ptr(normal));
-
-        glm::vec3 ReversedLightDire = m_sunDir * -1.0f;
-        ReversedLightDire = glm::normalize(ReversedLightDire);
-        
-        glUniform3fv(glGetUniformLocation(prog, "gReversedLightDir"), 1, glm::value_ptr(ReversedLightDire));
-        m_models[CATFISH].Draw();
-
-        // TERRAIN //
-        m_shaders[TERRAIN].Use();
-        prog = m_shaders[TERRAIN].Program;
+        //TERRAIN//
+    
         glUniformMatrix4fv(glGetUniformLocation(prog, "gVP"), 1, GL_FALSE, glm::value_ptr(viewProj));
         glUniform1f(glGetUniformLocation(prog, "gMinHeight"), m_terrain.GetMinHeight());
         glUniform1f(glGetUniformLocation(prog, "gMaxHeight"), m_terrain.GetMaxHeight());
         m_textures[SANDTERRAIN].Bind(GL_TEXTURE0);
         GLint texLoc = glGetUniformLocation(prog, "gTerrainTexture");
-        glUniform1i(texLoc, 0);
+        glUniform1i(texLoc, SANDTERRAIN);
 
         glm::vec3 ReversedLightDir = m_sunDir * -1.0f;
         ReversedLightDir = glm::normalize(ReversedLightDir);
@@ -322,9 +298,9 @@ public:
 
         glDepthFunc(GL_LEQUAL);
 
-        glm::mat4 view = glm::mat4(glm::mat3(m_view));
-        glm::mat4 VP = m_projection * view;
-        glUniformMatrix4fv(glGetUniformLocation(m_shaders[SKYBOX].Program, "gView"), 1, GL_FALSE, glm::value_ptr(VP));
+        glm::mat4 view = glm::mat4(glm::mat3(m_cam->GetViewMatrix()));
+        glUniformMatrix4fv(glGetUniformLocation(m_shaders[SKYBOX].Program, "gView"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(m_shaders[SKYBOX].Program, "gProj"), 1, GL_FALSE, glm::value_ptr(m_projection));
         glUniform1i(glGetUniformLocation(m_shaders[SKYBOX].Program, "IsDay"), isDay);
 
         m_models[CUBE].Draw();

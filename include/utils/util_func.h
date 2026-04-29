@@ -46,3 +46,10 @@ inline float Distance(const glm::vec3& v1,const glm::vec3& v2)
     float distance = sqrtf(DistSquared);
     return distance;
 }
+
+template<typename T>
+inline T clamp(const T& value, const T& min, const T& max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}

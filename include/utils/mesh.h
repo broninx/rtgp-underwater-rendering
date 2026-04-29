@@ -29,6 +29,8 @@ using namespace std;
 
 // Std. Includes
 #include <vector>
+#include <iostream>
+#include <glfw/glfw3.h>
 
 // data structure for vertices
 struct Vertex {

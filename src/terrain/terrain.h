@@ -33,7 +33,6 @@ public:
     float GetMinHeight() const {return m_minHeight;}
     float GetMaxHeight() const {return m_maxHeight;}
 	void SetMinMaxHeight(float MinHeight, float MaxHeight) {m_minHeight = MinHeight; m_maxHeight = MaxHeight;}
-	//TODO:
 	float GetWorldSize() { return m_terrainSize * m_worldScale;}
 	float GetWorldHeight(float x, float z);
 	float GetHeightInterpolated(float HeightMapX, float HeightMapZ);
