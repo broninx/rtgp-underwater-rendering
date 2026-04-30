@@ -324,7 +324,7 @@ public:
 
         glm::mat4 view = glm::mat4(glm::mat3(m_view));
         glm::mat4 VP = m_projection * view;
-        glUniformMatrix4fv(glGetUniformLocation(m_shaders[SKYBOX].Program, "gView"), 1, GL_FALSE, glm::value_ptr(VP));
+        glUniformMatrix4fv(glGetUniformLocation(m_shaders[SKYBOX].Program, "gVP"), 1, GL_FALSE, glm::value_ptr(VP));
         glUniform1i(glGetUniformLocation(m_shaders[SKYBOX].Program, "IsDay"), isDay);
 
         m_models[CUBE].Draw();
