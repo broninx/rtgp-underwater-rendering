@@ -4,27 +4,23 @@ layout (location = 0) in vec3 Position;
 layout (location = 1) in vec2 InTex;
 layout (location = 2) in vec3 InNormal;
 
-uniform mat4 gVP;
-uniform float gMinHeight;
-uniform float gMaxHeight;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
 
-out vec4 Color;
 out vec2 Tex;
 out vec3 Normal;
+out vec4 viewPos;
+out vec3 worldPos;
 
 void main()
 {
-    gl_Position = gVP * vec4(Position, 1.0);
+    vec4 worldPosition = vec4(Position, 1.0);
+    vec4 viewPosition = viewMatrix * worldPosition;
+    gl_Position = projectionMatrix * viewPosition;
 
-    float DeltaHeight = gMaxHeight - gMinHeight;
-
-    float HeightRatio = (Position.y - gMinHeight) / DeltaHeight;
-
-    float c = HeightRatio * 0.7 + 0.2;
-
-    Color = vec4(c, c, c, 1.0);
-
+    viewPos = viewPosition;
+    worldPos = worldPosition.xyz;
     Tex = InTex;
 
-    Normal = InNormal;
+    Normal = mat3(viewMatrix) * InNormal;
 }
