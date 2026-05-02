@@ -122,6 +122,45 @@ public:
         freeGPUresources();
     }
 
+    void InitVBOI(vector<glm::mat4>& mat, uint num)
+    {
+        glBindVertexArray(this->VAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, this->VBOI);
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * num, mat.data(), GL_STREAM_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    void SetModelInstanced()
+    {
+        glBindVertexArray(this->VAO);
+
+        glGenBuffers(1, &this->VBOI);
+        glBindBuffer(GL_ARRAY_BUFFER, this->VBOI);
+        // Colon 0 of model Matrix in case of instanced drow
+        glEnableVertexAttribArray(5);
+        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * 0));
+        glVertexAttribDivisor(5, 1); // per-instance
+
+        // Colon 1 of model Matrix in case of instanced drow
+        glEnableVertexAttribArray(6);
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * 1));
+        glVertexAttribDivisor(6, 1); // per-instance
+
+        // Colon 2 of model Matrix in case of instanced drow
+        glEnableVertexAttribArray(7);
+        glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * 2));
+        glVertexAttribDivisor(7, 1); // per-instance
+
+        // Colon 3 of model Matrix in case of instanced drow
+        glEnableVertexAttribArray(8);
+        glVertexAttribPointer(8, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * 3));
+        glVertexAttribDivisor(8, 1); // per-instance
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0); 
+        glBindVertexArray(0);
+    }
     //////////////////////////////////////////
 
     // rendering of mesh
@@ -135,10 +174,23 @@ public:
         glBindVertexArray(0);
     }
 
+    void Draw(uint num)
+    {
+        // VAO is made "active"
+        glBindVertexArray(this->VAO);
+
+        // rendering of data in the VAO
+        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0, num);
+        // VAO is "detached"
+        glBindVertexArray(0);
+    }
+
 private:
 
     // VBO and EBO
     GLuint VBO, EBO;
+    //VBOI = VBO Instanced
+    GLuint VBOI;
 
     //////////////////////////////////////////
     // buffer objects\arrays are initialized
@@ -180,6 +232,10 @@ private:
         glEnableVertexAttribArray(4);
         glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Bitangent));
 
+        // Colon 0 of model Matrix in case of instanced drow
+        // Colon 1 of model Matrix in case of instanced drow
+        // Colon 2 of model Matrix in case of instanced drow
+        // Colon 3 of model Matrix in case of instanced drow
         // Note that this is allowed, the call to glVertexAttribPointer registered VBO as the currently bound vertex buffer object so afterwards we can safely unbind
         glBindBuffer(GL_ARRAY_BUFFER, 0); 
         // Unbind VAO (it's always a good thing to unbind any buffer/array to prevent strange bugs), remember: do NOT unbind the EBO, keep it bound to this VAO

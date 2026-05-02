@@ -60,7 +60,6 @@ inline T clamp(const T& value, const T& min, const T& max) {
 
 inline void spreadXYZ(std::vector<glm::vec3>& pos, int startingPoint, int endingPoint, glm::vec3 center, float spreadRad)
 {
-    // std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
     for (int i = startingPoint; i < endingPoint; i++)
     {
         float theta = PI * randomFloatRange(0.0f, 1.0f);
@@ -101,7 +100,7 @@ inline void spreadXYZnt(std::vector<glm::vec3>& pos, float spreadRad, int numIns
     {
         randx = randomFloatRange(terrSizef / 4.0f - 30.0f, (terrSizef - (terrSizef / 4.0f) + 30.0f));
         randz = randomFloatRange(terrSizef / 4.0f - 30.0f, (terrSizef - (terrSizef / 4.0f) + 30.0f));
-        randy = randomFloatRange((float)MAX_HEIGHT_TERR , terrSizef / 4.0f);
+        randy = randomFloatRange((float)MAX_HEIGHT_TERR , terrSizef / 2.0f);
         spreadXYZ(pos, batch * i, batch * (i+1), glm::vec3(randx, randy, randz), spreadRad);
     }
 }

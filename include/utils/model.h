@@ -74,7 +74,19 @@ public:
     }
 
     //////////////////////////////////////////
+    void SetVBOI(vector<glm::mat4>& mat, uint num)
+    {
+        for( auto& m : meshes) {
+            m.InitVBOI(mat, num);
+        }
+    }
 
+    void SetInstanced()
+    {
+        for( auto& m : meshes) {
+            m.SetModelInstanced();
+        }
+    }
     // model rendering: calls rendering methods of each instance of Mesh class in the vector
     void Draw()
     {
@@ -82,6 +94,11 @@ public:
             this->meshes[i].Draw();
     }
 
+    void Draw(uint num)
+    {
+        for(GLuint i = 0; i < this->meshes.size(); i++)
+            this->meshes[i].Draw(num);
+    }
     //////////////////////////////////////////
     glm::mat4 GetModelMatrix()
     {

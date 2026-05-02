@@ -27,6 +27,6 @@
 #define STARTING_X (TERRAIN_SIZE - 1 ) / 2
 #define STARTING_Z (TERRAIN_SIZE - 1 ) / 2
 #define STARTING_Y MAX_HEIGHT_TERR
-#define FISH_NUM 400
+#define FISH_NUM 600
 
 #define FOG_DENS 0.005f;
