@@ -144,7 +144,7 @@ void GeomipGrid::Vertex::InitVertex(const Terrain* pTerrain, int x, int z)
 	Pos = vec3(x * WorldScale, y, z * WorldScale);
 
 	float Size = (float) pTerrain->GetSize();
-	Tex = vec2(x / Size, y / Size);
+	Tex = vec2(x / Size, z / Size);
 }
 
 void GeomipGrid::InitVertices(const Terrain* pTerrain, std::vector<Vertex>& Vertices)

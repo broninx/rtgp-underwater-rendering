@@ -104,3 +104,4 @@ inline void spreadXYZnt(std::vector<glm::vec3>& pos, float spreadRad, int numIns
         spreadXYZ(pos, batch * i, batch * (i+1), glm::vec3(randx, randy, randz), spreadRad);
     }
 }
+

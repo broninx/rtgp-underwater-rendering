@@ -46,13 +46,19 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 // static int g_seed;
 
-enum SceneObj{ CUBE, CATFISH }; 
-enum ShaderType{ TERRAIN, GENERAL, SKYBOX };
-enum Textures {SANDTERRAIN};
+enum SceneObj{ CUBE, CATFISH, STONE, BOAT}; 
+enum ShaderType{ TERRAIN, GENERAL, GENERALONE, SKYBOX };
+enum Textures {SANDTERRAIN,CATFISHTXT, STONETXT, BOATTXT, CAUSTICTXT};
 // callback functions for keyboard and mouse events
 class Render
 {
 private:
+    enum Models {FISHMOD, STONEMOD, BOATMOD};
+    struct ModelTransform {
+        std::vector<glm::vec3> worldPos;
+        std::vector<glm::vec3> worldScale;
+        std::vector<float> angleRotation;
+    };
     GLFWwindow* window = NULL;
     Camera* m_cam;
     GLboolean m_isWireframe = false;
@@ -70,7 +76,10 @@ private:
     int keys[1024];
     int counter = 0;
     glm::vec3 m_sunDir;
-    std::vector<glm::vec3> m_objWorldPos;
+    ModelTransform m_fish;
+    ModelTransform m_stone;
+    ModelTransform m_boat;
+
     GLuint m_fishVBO;
 
     
@@ -100,7 +109,8 @@ private:
     void InitShaders(){
         m_shaders.push_back(Shader("shaders/terrain.vert", "shaders/terrain.frag"));
         m_shaders.push_back(Shader("shaders/general.vert", "shaders/general.frag"));
-        m_shaders.push_back(Shader("shaders/skybox.vs", "shaders/skybox.fs"));
+        m_shaders.push_back(Shader("shaders/generalOne.vert", "shaders/general.frag"));
+        m_shaders.push_back(Shader("shaders/skybox.vert", "shaders/skybox.frag"));
     }
 
     void InitModels(){
@@ -108,6 +118,8 @@ private:
         // we load the model(s) (code of Model class is in include/utils/model.h)
         m_models.push_back(Model("models/cube.obj")); // used for the enviroment map
         m_models.push_back(Model("models/catfish_obj/catfishRawModel.obj"));
+        m_models.push_back(Model("models/stone.OBJ"));
+        m_models.push_back(Model("models/boat.obj"));
        
     }
 
@@ -115,7 +127,13 @@ private:
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/sand_white.png"));
         m_textures[SANDTERRAIN].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/catfish.png"));
-        m_textures[CATFISH].Load();
+        m_textures[CATFISHTXT].Load();
+        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/stone_tex/stone_diffuse.png"));
+        m_textures[STONETXT].Load();
+        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/Wood_Cherry_Original.jpg"));
+        m_textures[BOATTXT].Load();
+        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/Caustic_Free.jpg"));
+        m_textures[CAUSTICTXT].Load();
     }
 
     void InitTerrain(){
@@ -124,6 +142,78 @@ private:
 
         int patchSize = 33;
         m_terrain.CreateMidpointDisplacement(TERRAIN_SIZE, patchSize, ROUGHNESS_TERR, MIN_HEIGHT_TERR, MAX_HEIGHT_TERR);
+    }
+
+    void InitObjWorldPos()
+    {
+        // initialize positions of the fishes 
+
+        //spread a batch of fishes in a spherical space
+        const float spreadRad = 30.0f;
+        const int numDiv = 60;
+        spreadXYZnt(m_fish.worldPos, spreadRad, FISH_NUM, numDiv);
+        for(int i = 0; i < FISH_NUM; i ++)
+        {
+            m_fish.worldScale.push_back(glm::vec3(randomFloatRange(0.03f, 0.09f)));
+        }
+
+        // initialize positions of the stones
+
+        const float terrSizef = (float) TERRAIN_SIZE; 
+        float randx, randy, randz;
+        for(int i = 0; i < STONE_NUM; i ++)
+        {
+            randx = randomFloatRange(terrSizef / 4.0f - 30.0f, (terrSizef - (terrSizef / 4.0f) + 30.0f));
+            randz = randomFloatRange(terrSizef / 4.0f - 30.0f, (terrSizef - (terrSizef / 4.0f) + 30.0f));
+            randy = m_terrain.GetHeight(randx, randz);
+            m_stone.worldPos.push_back(glm::vec3(randx, randy, randz));
+            m_stone.worldScale.push_back(glm::vec3(randomFloatRange(5.0f, 15.0f)));
+        }
+
+        // initialization boats
+        float x, y, z;
+        x = STARTING_X - 82.7f;
+        z = STARTING_Z + 132.4f;
+        y = m_terrain.GetHeight(x, z) + 10.0f;
+        m_boat.worldPos.push_back(glm::vec3(x, y, z));
+        m_boat.worldScale.push_back(glm::vec3(10.0f));
+        m_boat.angleRotation.push_back(180.0f);
+    }
+
+    void SetUniforms(GLuint prog, glm::vec3 lightVDir, glm::vec3& topColor, glm::vec3& botColor, float dayPhase)
+    {
+        // light direction
+        glUniform3fv(glGetUniformLocation(prog, "gLightDir"), 1, glm::value_ptr(lightVDir));
+
+        // density of the fog, top color and bottom color
+        const float fogD = FOG_DENS;
+        glUniform1f(glGetUniformLocation(prog, "densityFog"), fogD);
+
+        glUniform3fv(glGetUniformLocation(prog, "topColor"), 1, glm::value_ptr(topColor));
+        glUniform3fv(glGetUniformLocation(prog, "botColor"), 1, glm::value_ptr(botColor));
+
+        // min height and max height to calculate the color of the fog
+        glUniform1f(glGetUniformLocation(prog, "gMinHeight"), m_terrain.GetMinHeight());
+
+        const float worldSize = TERRAIN_SIZE / 2;
+        glUniform1f(glGetUniformLocation(prog, "gMaxHeight"), worldSize);
+
+        // position of the cam to calculate the fog factor
+        glUniform3fv(glGetUniformLocation(prog, "camPos"), 1, glm::value_ptr(m_cam->getCamPos()));
+
+        glUniformMatrix4fv(glGetUniformLocation(prog, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(m_view));
+        glUniformMatrix4fv(glGetUniformLocation(prog, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_projection));
+
+        glUniform3fv(glGetUniformLocation(prog, "specularColor"), 1, glm::value_ptr(glm::vec3(1.0f)));
+
+        float ka = KA;
+        glUniform1f(glGetUniformLocation(prog, "Ka"), ka);
+        float kd = KD;
+        glUniform1f(glGetUniformLocation(prog, "Kd"), kd);
+        float ks = KS;
+        glUniform1f(glGetUniformLocation(prog, "Ks"), ks);
+        float shininess = SHININESS;
+        glUniform1f(glGetUniformLocation(prog, "shininess"), shininess);
     }
 
 public:
@@ -172,15 +262,16 @@ public:
         InitShaders();
 
         InitModels();
-        //spread a batch of fishes in a spherical space
-        const float spreadRad = 30.0f;
-        const int numDiv = 60;
-        spreadXYZnt(m_objWorldPos, spreadRad, FISH_NUM, numDiv);
+       
 
         m_models[CATFISH].SetInstanced();
+        m_models[STONE].SetInstanced();
+        m_models[BOAT].SetInstanced();
 
 
         InitTerrain();
+
+        InitObjWorldPos();
 
         InitTextures();
 
@@ -232,12 +323,10 @@ public:
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        static const float worldSize = TERRAIN_SIZE / 2;
-        static const float fogD = FOG_DENS;
         /////////// SUNLIGHT DIRECTION /////////////////////////
 
-        static float horizontalAngle = 270.0f;
-        static float verticalAngle = 270.0f;
+        static float horizontalAngle = 0.0f;
+        static float verticalAngle = 0.0f;
 
         horizontalAngle >= 360.0f ? horizontalAngle = 0.002f : horizontalAngle += 0.002f;
         verticalAngle  >= 360.0f ? verticalAngle  = 0.002f : verticalAngle += 0.002f;
@@ -251,12 +340,11 @@ public:
 
         GLuint prog;
 
-        // if(m_sunDir.y >= 0 ) m_sunDir.y = 0.2;
-        glm::vec3 ReversedLightDir = m_sunDir * -1.0f;
+        glm::vec3 revLightDir = m_sunDir * -1.0f;
 
         //////////////////// COLORS SETUP /////////////////////////////////////////
 
-        float dayPhase = glm::smoothstep(-1.0f, 1.0f, ReversedLightDir.y);
+        float dayPhase = glm::smoothstep(-1.0f, 1.0f, revLightDir.y);
         
         static const glm::vec3 dayTopColor = glm::vec3(0.25f, 0.65f, 0.95f);
         static const glm::vec3 nightTopColor = glm::vec3(0.02f, 0.04f, 0.12f);
@@ -267,82 +355,89 @@ public:
         glm::vec3 botColor = glm::mix(nightBotColor, dayBotColor, dayPhase);
 
         /////////////////// OBJECTS ////////////////////////////////////////////////
-        m_shaders[GENERAL].Use();
 
-        prog = m_shaders[GENERAL].Program;
+        glm::vec3 lightVDir = glm::normalize(glm::mat3(m_view) * revLightDir); 
 
-        GLint viewLoc = glGetUniformLocation(prog, "viewMatrix");
-        GLint projLoc = glGetUniformLocation(prog, "projectionMatrix");
-        
+        // m_shaders[GENERALONE].Use();
+        // prog = m_shaders[GENERALONE].Program;
+
         // CATFISHES //
 
+        m_shaders[GENERAL].Use();
+        prog = m_shaders[GENERAL].Program;
+
         //texture
-        m_textures[CATFISH].Bind(GL_TEXTURE_2D);
-        GLint texLocation = glGetUniformLocation(prog, "gTexture");
-        glUniform1i(texLocation, 0);
+        m_textures[CATFISHTXT].Bind(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(prog, "gTexture"), 0);
 
-        // light direction
-        glm::vec3 lightDirView = glm::normalize(glm::mat3(m_view) * ReversedLightDir); 
-        glUniform3fv(glGetUniformLocation(prog, "gReversedLightDir"), 1, glm::value_ptr(lightDirView));
-
-        // density of the fog, top color and bottom color
-        glUniform1f(glGetUniformLocation(prog, "densityFog"), fogD);
-        glUniform3fv(glGetUniformLocation(prog, "topColor"), 1, glm::value_ptr(topColor));
-        glUniform3fv(glGetUniformLocation(prog, "botColor"), 1, glm::value_ptr(botColor));
-
-        // min height and max height to calculate the color of the fog
-        glUniform1f(glGetUniformLocation(prog, "gMinHeight"), m_terrain.GetMinHeight());
-        glUniform1f(glGetUniformLocation(prog, "gMaxHeight"), worldSize);
-
-        // position of the cam to calculate the fog factor
-        glUniform3fv(glGetUniformLocation(prog, "camPos"), 1, glm::value_ptr(m_cam->getCamPos()));
+        SetUniforms(prog, lightVDir, topColor, botColor, dayPhase);
 
         std::vector<glm::mat4> fishModels(FISH_NUM);
         for (int i = 0; i < FISH_NUM; i++)
         {
             glm::mat4 mat = glm::mat4(1.0f);
-            mat = glm::translate(mat, m_objWorldPos[i]); // spread out along X
-            mat = glm::scale(mat, glm::vec3(0.05f, 0.05f, 0.05f)); // spread out along X
+            mat = glm::translate(mat, m_fish.worldPos[i]); // spread out along X
+            mat = glm::scale(mat, m_fish.worldScale[i]); // spread out along X
 
             fishModels[i] = mat;
         }
 
-        // Upload to the instance VBO
-        // glBindBuffer(GL_ARRAY_BUFFER, m_fishVBO);
-        // glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * FISH_NUM, fishModels.data(), GL_STREAM_DRAW);
-        // glBindBuffer(GL_ARRAY_BUFFER, 0);
         m_models[CATFISH].SetVBOI(fishModels, FISH_NUM);
-
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(m_view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(m_projection));
 
         m_models[CATFISH].Draw(FISH_NUM);
 
 
+        // STONE //
+
+        m_textures[STONETXT].Bind(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(prog, "gTexture"), 0);
+
+        std::vector<glm::mat4> stoneModels(STONE_NUM);
+        for (int i = 0; i < STONE_NUM; i++)
+        {
+            glm::mat4 mat = glm::mat4(1.0f);
+            mat = glm::translate(mat, m_stone.worldPos[i]); // spread out along X
+            mat = glm::scale(mat, m_stone.worldScale[i]); // spread out along X
+
+            stoneModels[i] = mat;
+        }
+
+        m_models[STONE].SetVBOI(stoneModels, STONE_NUM);
+
+        m_models[STONE].Draw(STONE_NUM);
+
+
+        // BOAT //
+        m_textures[BOATTXT].Bind(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(prog, "gTexture"), 0);
+
+        std::vector<glm::mat4> boatModels(BOAT_NUM);
+        glm::mat4 mat = glm::mat4(1.0f);
+
+        mat = glm::translate(mat, m_boat.worldPos[0]); // spread out along X
+        mat = mat * glm::rotate(glm::mat4(1.0f), glm::radians(m_boat.angleRotation[0]), glm::vec3(1,0,0));
+        mat = glm::scale(mat, m_boat.worldScale[0]); // spread out along X
+        boatModels[0] = mat;
+
+        m_models[BOAT].SetVBOI(boatModels, BOAT_NUM);
+
+        m_models[BOAT].Draw(BOAT_NUM);
 
         // TERRAIN //
         m_shaders[TERRAIN].Use();
         prog = m_shaders[TERRAIN].Program;
 
-        m_textures[SANDTERRAIN].Bind(GL_TEXTURE_2D);
+        SetUniforms(prog, lightVDir, topColor, botColor, dayPhase);
 
+        glUniform1f(glGetUniformLocation(prog, "dayPhase"), dayPhase);
+        glUniform1f(glGetUniformLocation(prog, "uTime"), (float)m_currentFrame);
 
-        glUniformMatrix4fv(glGetUniformLocation(prog, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(m_view));
-        glUniformMatrix4fv(glGetUniformLocation(prog, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_projection));
+        m_textures[SANDTERRAIN].Bind(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(prog, "gTerrainTexture"), 0);
 
-        GLint texLoc = glGetUniformLocation(prog, "gTerrainTexture");
-        glUniform1i(texLoc, 0);
+        m_textures[CAUSTICTXT].Bind(GL_TEXTURE1);
+        glUniform1i(glGetUniformLocation(prog, "gTexCaustic"), 1);
 
-        ReversedLightDir = glm::normalize(glm::mat3(m_view) * ReversedLightDir);
-        glUniform3fv(glGetUniformLocation(prog, "gReversedLightDir"), 1, glm::value_ptr(ReversedLightDir));
-
-        // const float fogD = FOG_DENS;
-        glUniform1f(glGetUniformLocation(prog, "densityFog"), fogD);
-        glUniform3fv(glGetUniformLocation(prog, "topColor"), 1, glm::value_ptr(topColor));
-        glUniform3fv(glGetUniformLocation(prog, "botColor"), 1, glm::value_ptr(botColor));
-        glUniform1f(glGetUniformLocation(prog, "gMinHeight"), m_terrain.GetMinHeight());
-
-        glUniform1f(glGetUniformLocation(prog, "gMaxHeight"), worldSize);
         m_terrain.Render(m_cam->getCamPos());
 
         /////////////////// SKYBOX ////////////////////////////////////////////////
