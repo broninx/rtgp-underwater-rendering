@@ -46,9 +46,9 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 // static int g_seed;
 
-enum SceneObj{ CUBE, CATFISH, STONE, BOAT}; 
-enum ShaderType{ TERRAIN, GENERAL, GENERALONE, SKYBOX };
-enum Textures {SANDTERRAIN,CATFISHTXT, STONETXT, BOATTXT, CAUSTICTXT};
+enum SceneObj{ CUBE, CATFISH, STONE, BOAT, PLANE, SPHERE}; 
+enum ShaderType{ TERRAIN, GENERAL, GENERALONE, SKYBOX, SURFACE, SUN};
+enum Textures {SANDTERRAIN,CATFISHTXT, STONETXT, BOATTXT, CAUSTICTXT, WATERNRM};
 // callback functions for keyboard and mouse events
 class Render
 {
@@ -58,6 +58,7 @@ private:
         std::vector<glm::vec3> worldPos;
         std::vector<glm::vec3> worldScale;
         std::vector<float> angleRotation;
+        std::vector<float> velocities;
     };
     GLFWwindow* window = NULL;
     Camera* m_cam;
@@ -79,10 +80,6 @@ private:
     ModelTransform m_fish;
     ModelTransform m_stone;
     ModelTransform m_boat;
-
-    GLuint m_fishVBO;
-
-    
 
     void CreateWindow(){
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -111,6 +108,8 @@ private:
         m_shaders.push_back(Shader("shaders/general.vert", "shaders/general.frag"));
         m_shaders.push_back(Shader("shaders/generalOne.vert", "shaders/general.frag"));
         m_shaders.push_back(Shader("shaders/skybox.vert", "shaders/skybox.frag"));
+        m_shaders.push_back(Shader("shaders/surface.vert", "shaders/surface.frag"));
+        m_shaders.push_back(Shader("shaders/sun.vert", "shaders/sun.frag"));
     }
 
     void InitModels(){
@@ -120,6 +119,8 @@ private:
         m_models.push_back(Model("models/catfish_obj/catfishRawModel.obj"));
         m_models.push_back(Model("models/stone.OBJ"));
         m_models.push_back(Model("models/boat.obj"));
+        m_models.push_back(Model("models/plane.obj"));
+        m_models.push_back(Model("models/sphere.obj"));
        
     }
 
@@ -134,6 +135,8 @@ private:
         m_textures[BOATTXT].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/Caustic_Free.jpg"));
         m_textures[CAUSTICTXT].Load();
+        m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/water_normal.jpg"));
+        m_textures[WATERNRM].Load();
     }
 
     void InitTerrain(){
@@ -150,11 +153,15 @@ private:
 
         //spread a batch of fishes in a spherical space
         const float spreadRad = 30.0f;
-        const int numDiv = 60;
+        const int numDiv = NUM_DIV_FISH;
         spreadXYZnt(m_fish.worldPos, spreadRad, FISH_NUM, numDiv);
         for(int i = 0; i < FISH_NUM; i ++)
         {
             m_fish.worldScale.push_back(glm::vec3(randomFloatRange(0.03f, 0.09f)));
+        }
+        for(int i = 0; i < NUM_DIV_FISH; i++)
+        {
+            m_fish.velocities.push_back(randomFloatRange(0.02, 0.06));
         }
 
         // initialize positions of the stones
@@ -325,8 +332,8 @@ public:
 
         /////////// SUNLIGHT DIRECTION /////////////////////////
 
-        static float horizontalAngle = 0.0f;
-        static float verticalAngle = 0.0f;
+        static float horizontalAngle = 270.0f;
+        static float verticalAngle = 270.0f;
 
         horizontalAngle >= 360.0f ? horizontalAngle = 0.002f : horizontalAngle += 0.002f;
         verticalAngle  >= 360.0f ? verticalAngle  = 0.002f : verticalAngle += 0.002f;
@@ -358,9 +365,6 @@ public:
 
         glm::vec3 lightVDir = glm::normalize(glm::mat3(m_view) * revLightDir); 
 
-        // m_shaders[GENERALONE].Use();
-        // prog = m_shaders[GENERALONE].Program;
-
         // CATFISHES //
 
         m_shaders[GENERAL].Use();
@@ -372,14 +376,21 @@ public:
 
         SetUniforms(prog, lightVDir, topColor, botColor, dayPhase);
 
+        int numFishPerBatch = FISH_NUM / NUM_DIV_FISH;
         std::vector<glm::mat4> fishModels(FISH_NUM);
-        for (int i = 0; i < FISH_NUM; i++)
+        for(int i = 0; i < NUM_DIV_FISH; i++)
         {
-            glm::mat4 mat = glm::mat4(1.0f);
-            mat = glm::translate(mat, m_fish.worldPos[i]); // spread out along X
-            mat = glm::scale(mat, m_fish.worldScale[i]); // spread out along X
+            for (int j = 0; j < numFishPerBatch; j++)
+            {
+                int idx = i * numFishPerBatch + j;
+                m_fish.worldPos[idx].z += m_fish.velocities[i];
+                if (m_fish.worldPos[idx].z >= TERRAIN_SIZE) {m_fish.worldPos[idx].z = 0;}
+                glm::mat4 mat = glm::mat4(1.0f);
+                mat = glm::translate(mat, m_fish.worldPos[idx]); // spread out along X
+                mat = glm::scale(mat, m_fish.worldScale[idx]); // spread out along X
 
-            fishModels[i] = mat;
+                fishModels[idx] = mat;
+            }
         }
 
         m_models[CATFISH].SetVBOI(fishModels, FISH_NUM);
@@ -440,6 +451,7 @@ public:
 
         m_terrain.Render(m_cam->getCamPos());
 
+
         /////////////////// SKYBOX ////////////////////////////////////////////////
         m_shaders[SKYBOX].Use();
         prog = m_shaders[SKYBOX].Program;
@@ -463,6 +475,37 @@ public:
 
         glCullFace(OldCullFaceMode);
         glDepthFunc(OldDepthFuncMode);
+
+        /////////////////// WATER SURFACE ////////////////////////////////////////
+        glDepthFunc(GL_LESS);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        m_shaders[SURFACE].Use();
+        prog = m_shaders[SURFACE].Program;
+
+        m_textures[WATERNRM].Bind(GL_TEXTURE0);
+
+        SetUniforms(prog, lightVDir, topColor, botColor, dayPhase);
+
+        const float d = DISTORTION_STR;
+        const float f = FRESNEL_POW;
+        glUniform1f(glGetUniformLocation(prog, "uTime"), (float)m_currentFrame);
+        glUniform1f(glGetUniformLocation(prog, "distortStr"), d);
+        glUniform1f(glGetUniformLocation(prog, "fresnelPow"), f);
+
+        glm::mat4 matPlane = glm::mat4(1.0f);
+        float planeY =  m_terrain.GetMaxHeight() + m_terrain.GetSize() / 2;  
+        matPlane = glm::translate(matPlane, glm::vec3(STARTING_X, planeY, STARTING_Z));
+        matPlane = glm::scale(matPlane, glm::vec3(2000.0f, 1.0f, 2000.0f));
+        glUniformMatrix4fv(glGetUniformLocation(prog, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(matPlane));
+
+        m_models[PLANE].Draw();
+
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND); 
+
+
     }
 
     void apply_camera_movements()

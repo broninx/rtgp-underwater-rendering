@@ -12,6 +12,7 @@ class Texture
         GLuint m_obj;
 
     public:
+        Texture() {}
         Texture(GLenum TextureTarget, const std::string& FileName) 
         {
             m_target = TextureTarget;
@@ -21,4 +22,6 @@ class Texture
         void Load();
 
         void Bind(GLenum TextureUnit);
+
 };
+
