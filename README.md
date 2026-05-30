@@ -1,5 +1,5 @@
 # rtgp-underwater-rendering
-## Abstract
+
 # Table of Contents
 - [Abstract](#Abstract)
 - [System Overview](#section-2)
@@ -10,4 +10,4 @@
 - [Performance](#section-2)
 - [References](#section-2)
 
-#Abstract
+# Abstract
