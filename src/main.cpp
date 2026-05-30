@@ -44,22 +44,31 @@ GLboolean wireframe = GL_FALSE;
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
-// static int g_seed;
 
-enum SceneObj{ CUBE, CATFISH, STONE, BOAT, PLANE, SPHERE}; 
-enum ShaderType{ TERRAIN, GENERAL, GENERALONE, SKYBOX, SURFACE, SUN};
+// enums to identify the models, shaders and textures used in the application
+enum SceneObj{ CUBE, CATFISH, STONE, BOAT, PLANE, SPHERE, QUAD}; 
+enum ShaderType{ TERRAIN, GENERAL, GENERALONE, SKYBOX, SURFACE, GODRAYS};
 enum Textures {SANDTERRAIN,CATFISHTXT, STONETXT, BOATTXT, CAUSTICTXT, WATERNRM};
-// callback functions for keyboard and mouse events
+
 class Render
 {
+
 private:
+
     enum Models {FISHMOD, STONEMOD, BOATMOD};
+
     struct ModelTransform {
         std::vector<glm::vec3> worldPos;
         std::vector<glm::vec3> worldScale;
         std::vector<float> angleRotation;
         std::vector<float> velocities;
     };
+    struct GodRay {
+        glm::vec3 origin;
+        float width;
+        float length;
+    };
+
     GLFWwindow* window = NULL;
     Camera* m_cam;
     GLboolean m_isWireframe = false;
@@ -80,71 +89,102 @@ private:
     ModelTransform m_fish;
     ModelTransform m_stone;
     ModelTransform m_boat;
+    GodRay m_godRays[NUM_SHAFTS];
 
-    void CreateWindow(){
+
+    // method to initialize the window
+    void CreateWindow()
+    {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-        // we set if the window is resizable
         glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
         // we create the application's window
         window = glfwCreateWindow(SCR_WIDHT, SCR_HEIGHT, "RTGP_lecture05", nullptr, nullptr);
-        
     }
 
-    void InitCallbacks(){
+    // method to initialize the callbacks
+    void InitCallbacks()
+    {
         // we put in relation the window and the callbacks
         glfwSetKeyCallback(window, key_callback);
         glfwSetCursorPosCallback(window, mouse_callback);
 
         // we disable the mouse cursor
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
     }
-    void InitShaders(){
+
+    // method to intialize the shaders
+    void InitShaders()
+    {
         m_shaders.push_back(Shader("shaders/terrain.vert", "shaders/terrain.frag"));
         m_shaders.push_back(Shader("shaders/general.vert", "shaders/general.frag"));
         m_shaders.push_back(Shader("shaders/generalOne.vert", "shaders/general.frag"));
         m_shaders.push_back(Shader("shaders/skybox.vert", "shaders/skybox.frag"));
         m_shaders.push_back(Shader("shaders/surface.vert", "shaders/surface.frag"));
-        m_shaders.push_back(Shader("shaders/sun.vert", "shaders/sun.frag"));
+        m_shaders.push_back(Shader("shaders/godRays.vert", "shaders/godRays.frag"));
     }
 
-    void InitModels(){
-
-        // we load the model(s) (code of Model class is in include/utils/model.h)
+    //method to initialize the models
+    void InitModels()
+    {
         m_models.push_back(Model("models/cube.obj")); // used for the enviroment map
         m_models.push_back(Model("models/catfish_obj/catfishRawModel.obj"));
         m_models.push_back(Model("models/stone.OBJ"));
         m_models.push_back(Model("models/boat.obj"));
         m_models.push_back(Model("models/plane.obj"));
         m_models.push_back(Model("models/sphere.obj"));
-       
+        m_models.push_back(Model("models/quad.obj"));
     }
 
-    void InitTextures(){
+    // method to initialize the textures
+    void InitTextures()
+    {
+        // we add textures to the vector of textures and we load them
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/sand_white.png"));
-        m_textures[SANDTERRAIN].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/catfish.png"));
-        m_textures[CATFISHTXT].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/stone_tex/stone_diffuse.png"));
-        m_textures[STONETXT].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/Wood_Cherry_Original.jpg"));
-        m_textures[BOATTXT].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/Caustic_Free.jpg"));
-        m_textures[CAUSTICTXT].Load();
         m_textures.push_back(Texture(GL_TEXTURE_2D, "textures/water_normal.jpg"));
+
+        m_textures[SANDTERRAIN].Load();
+        m_textures[CATFISHTXT].Load();
+        m_textures[STONETXT].Load();
+        m_textures[BOATTXT].Load();
+        m_textures[CAUSTICTXT].Load();
         m_textures[WATERNRM].Load();
     }
 
-    void InitTerrain(){
+    void InitGodRays()
+    {
+        float yPos = m_terrain.GetMaxHeight() + m_terrain.GetSize() /2.0f;
+        float range = (float)TERRAIN_SIZE / 2.0f;
+
+        for(int i = 0; i < NUM_SHAFTS; i++)
+        {
+            float x = randomFloatRange(STARTING_X - range, STARTING_X + range);
+            float z = randomFloatRange(STARTING_Z - range, STARTING_Z + range);
+            float width = randomFloatRange(MIN_SHAFT_WIDTH, MAX_SHAFT_WIDTH);
+            float length = randomFloatRange(MIN_SHAFT_LENGTH, MAX_SHAFT_LENGTH);
+            m_godRays[i].origin = glm::vec3(x, yPos, z);
+            m_godRays[i].width = width;
+            m_godRays[i].length = length;
+        }
+
+    }
+
+    // method to initialize the terrain
+    void InitTerrain()
+    {
         // we initialize the terrain
         m_terrain.Init(TERRAIN_SCALE);
 
         int patchSize = 33;
         m_terrain.CreateMidpointDisplacement(TERRAIN_SIZE, patchSize, ROUGHNESS_TERR, MIN_HEIGHT_TERR, MAX_HEIGHT_TERR);
+
     }
 
     void InitObjWorldPos()
@@ -155,32 +195,41 @@ private:
         const float spreadRad = 30.0f;
         const int numDiv = NUM_DIV_FISH;
         spreadXYZnt(m_fish.worldPos, spreadRad, FISH_NUM, numDiv);
+
+        // initialize scale and velocity of the fishes
         for(int i = 0; i < FISH_NUM; i ++)
         {
             m_fish.worldScale.push_back(glm::vec3(randomFloatRange(0.03f, 0.09f)));
         }
+
         for(int i = 0; i < NUM_DIV_FISH; i++)
         {
             m_fish.velocities.push_back(randomFloatRange(0.02, 0.06));
         }
 
         // initialize positions of the stones
-
         const float terrSizef = (float) TERRAIN_SIZE; 
         float randx, randy, randz;
         for(int i = 0; i < STONE_NUM; i ++)
         {
+            /*  we spread the stones in a wide area around the center of the terrain, 
+                to avoid having them all clustered in the center (where the fishes are) 
+                and to have some of them also in the external part of the terrain, where the cam can go. We also add a small margin of 30.0f 
+                to avoid having stones too close to the borders of the terrain,
+                where the height is very low and we could have some visual artifacts */
             randx = randomFloatRange(terrSizef / 4.0f - 30.0f, (terrSizef - (terrSizef / 4.0f) + 30.0f));
             randz = randomFloatRange(terrSizef / 4.0f - 30.0f, (terrSizef - (terrSizef / 4.0f) + 30.0f));
             randy = m_terrain.GetHeight(randx, randz);
+
+            // then we add a random position in the sphere of radius spreadRad
             m_stone.worldPos.push_back(glm::vec3(randx, randy, randz));
             m_stone.worldScale.push_back(glm::vec3(randomFloatRange(5.0f, 15.0f)));
         }
 
         // initialization boats
         float x, y, z;
-        x = STARTING_X - 82.7f;
-        z = STARTING_Z + 132.4f;
+        x = STARTING_X - 82.7f; 
+        z = STARTING_Z + 132.4f; 
         y = m_terrain.GetHeight(x, z) + 10.0f;
         m_boat.worldPos.push_back(glm::vec3(x, y, z));
         m_boat.worldScale.push_back(glm::vec3(10.0f));
@@ -195,7 +244,6 @@ private:
         // density of the fog, top color and bottom color
         const float fogD = FOG_DENS;
         glUniform1f(glGetUniformLocation(prog, "densityFog"), fogD);
-
         glUniform3fv(glGetUniformLocation(prog, "topColor"), 1, glm::value_ptr(topColor));
         glUniform3fv(glGetUniformLocation(prog, "botColor"), 1, glm::value_ptr(botColor));
 
@@ -224,28 +272,31 @@ private:
     }
 
 public:
-    Render(){
+
+    Render(){}
+
+    virtual ~Render()
+    {
+        SAFE_DELETE(m_cam);
+        glfwTerminate();
     }
 
-    virtual ~Render(){
-       SAFE_DELETE(m_cam);
-       glfwTerminate();
-    }
-
-    int Init(){
-
+    int Init()
+    {
         // we create a camera. We pass the initial position as a parameter to the constructor. 
-        //The last boolean tells that we want a camera "anchored" to the ground
         m_cam = new Camera(glm::vec3(STARTING_X, STARTING_Y, STARTING_Z));
         
         glfwInit();
 
+        // we add a stencil buffer to the framebuffer, in order to be able to use the stencil test for the water surface rendering
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);
         CreateWindow();
         if (!window)
         {
             std::cout << "Failed to create GLFW window" << std::endl;
             return -1;
         }
+
         glfwMakeContextCurrent(window);
 
         // Disable V-Sync
@@ -270,11 +321,11 @@ public:
 
         InitModels();
        
-
+        // we set the models to be instanced, so that we can render multiple instances of the same model with a single draw call
         m_models[CATFISH].SetInstanced();
         m_models[STONE].SetInstanced();
         m_models[BOAT].SetInstanced();
-
+        m_models[QUAD].SetInstanced();
 
         InitTerrain();
 
@@ -282,20 +333,25 @@ public:
 
         InitTextures();
 
+        InitGodRays();
+
         glFrontFace(GL_CW);
         glEnable(GL_DEPTH_TEST); //TODO: move this in the main funcion
         glClearColor(0.26f, 0.46f, 0.98f, 1.0f); //TODO: move this in the main funcion
+
         return 0;
     }
 
-    void Run(){
+    void Run()
+    {
         while (!glfwWindowShouldClose(window))
         {
-            
             // we calculate the time difference between the current frame and the last frame
             m_currentFrame = glfwGetTime();
             m_deltaTime = m_currentFrame - m_lastFrame;
+
             counter++;
+
             if(m_deltaTime >= 1.0f / 30.0f)
             {
                 std::string FPS = std::to_string((1.0f / m_deltaTime) * counter);
@@ -305,17 +361,19 @@ public:
                 counter = 0;
                 m_lastFrame = m_currentFrame;
             }
+
             // Check is an I/O event is happening
             glfwPollEvents();
+
             // we apply the camera movements following the keys pressed
             apply_camera_movements();
+
             // View matrix (=camera): position, view direction, camera "up" vector
             m_view = m_cam->GetViewMatrix();
 
             // we set the rendering mode
             // Draw in wireframe
             glPolygonMode(GL_FRONT_AND_BACK, (m_isWireframe ? GL_LINE : GL_FILL));
-
 
             // we render the scene
             RenderScene();
@@ -325,9 +383,9 @@ public:
         }
     }
 
-    void RenderScene(){
-
-
+    void RenderScene()
+    {
+        GLuint prog;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         /////////// SUNLIGHT DIRECTION /////////////////////////
@@ -344,8 +402,6 @@ public:
         m_sunDir.x = cos(elevation) * sin(azimuth);
         m_sunDir.y = sin(elevation);
         m_sunDir.z = cos(elevation) * cos(azimuth);
-
-        GLuint prog;
 
         glm::vec3 revLightDir = m_sunDir * -1.0f;
 
@@ -382,8 +438,13 @@ public:
         {
             for (int j = 0; j < numFishPerBatch; j++)
             {
+                // the general idx is determined by the batch idx and the idx inside the batch
                 int idx = i * numFishPerBatch + j;
+
+                // we update the position of the fish along the Z axis, using its velocity
                 m_fish.worldPos[idx].z += m_fish.velocities[i];
+
+                // if the fish goes beyond the terrain, we reset its position to the beginning of the terrain
                 if (m_fish.worldPos[idx].z >= TERRAIN_SIZE) {m_fish.worldPos[idx].z = 0;}
                 glm::mat4 mat = glm::mat4(1.0f);
                 mat = glm::translate(mat, m_fish.worldPos[idx]); // spread out along X
@@ -419,6 +480,7 @@ public:
 
 
         // BOAT //
+
         m_textures[BOATTXT].Bind(GL_TEXTURE0);
         glUniform1i(glGetUniformLocation(prog, "gTexture"), 0);
 
@@ -476,7 +538,9 @@ public:
         glCullFace(OldCullFaceMode);
         glDepthFunc(OldDepthFuncMode);
 
+
         /////////////////// WATER SURFACE ////////////////////////////////////////
+
         glDepthFunc(GL_LESS);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -505,7 +569,57 @@ public:
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND); 
 
+        //////////////////// GOD RAYS ////////////////////////////////////////////
 
+        glm::vec3 rayDir = glm::normalize(revLightDir);
+
+        // Camera forward (billboard helper)
+        glm::vec3 camForward = glm::vec3(-m_view[0][2], -m_view[1][2], -m_view[2][2]);
+        glm::vec3 right = glm::normalize(glm::cross(camForward, rayDir));
+
+        // Build an instance matrix for every shaft
+        std::vector<glm::mat4> rayMats(NUM_SHAFTS);
+        for (int i = 0; i < NUM_SHAFTS; ++i)
+        {
+            glm::vec3 origin = m_godRays[i].origin;
+            // Matrix that maps quad local space:
+            //   local Y (0->1)  ->  rayDir direction, length = shaftLength
+            //   local X (0->1)  ->  right direction, width = shaftWidth
+            glm::mat4 model = glm::mat4(1.0f);
+            model[0] = glm::vec4(right * m_godRays[i].width, 0.0f);      // X axis -> width
+            model[1] = glm::vec4(rayDir * m_godRays[i].length, 0.0f);    // Y axis -> length
+            model[2] = glm::vec4(glm::cross(right, rayDir), 0.0f); // Z axis (perpendicular)
+            model[3] = glm::vec4(origin, 1.0f);
+            rayMats[i] = model;
+        }
+
+        // Update the instance buffer for the quad model
+        m_models[QUAD].SetVBOI(rayMats, NUM_SHAFTS);
+
+        // ---- Draw with additive blending ----
+        m_shaders[GODRAYS].Use();
+        prog = m_shaders[GODRAYS].Program;
+        glUniformMatrix4fv(glGetUniformLocation(prog, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(m_view));
+        glUniformMatrix4fv(glGetUniformLocation(prog, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(m_projection));
+        // glUniform1f(glGetUniformLocation(prog, "intensity"), 1.2f);
+        glUniform1f(glGetUniformLocation(prog, "dayPhase"), dayPhase);
+        const float fogD = FOG_DENS;
+        glUniform1f(glGetUniformLocation(prog, "densityFog"), fogD);
+        float worldHeight = m_terrain.GetWorldHeight(m_cam->getCamPos().x, m_cam->getCamPos().z);
+        float worldSize = m_terrain.GetWorldSize();
+        float dist = (worldHeight + worldSize / 2) - m_cam->getCamPos().y ; // distance from the water surface, used to attenuate the god rays
+        glUniform1f(glGetUniformLocation(prog, "distFromWater"), dist);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);   // additive
+        // glDepthMask(GL_FALSE);
+        // glDisable(GL_CULL_FACE);
+
+        m_models[QUAD].Draw(NUM_SHAFTS);   // instanced draw
+
+        glDisable(GL_BLEND);
+        // glDepthMask(GL_TRUE);
+        // glEnable(GL_CULL_FACE);
     }
 
     void apply_camera_movements()

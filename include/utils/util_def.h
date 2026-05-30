@@ -35,3 +35,10 @@
 // water surface
 #define DISTORTION_STR 5.0f
 #define FRESNEL_POW 3.0f
+
+// god rays
+#define NUM_SHAFTS 200
+#define MIN_SHAFT_LENGTH 30.0f
+#define MAX_SHAFT_LENGTH 300.0f
+#define MIN_SHAFT_WIDTH 0.1f
+#define MAX_SHAFT_WIDTH 1.0f
