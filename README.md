@@ -1,7 +1,7 @@
 # rtgp-underwater-rendering
 
 ## Table of Contents
-- [Abstract](##Abstract)
+- [Abstract](#Abstract)
 - [System Overview](#section-2)
 - [Terrain](#section-2)
 - [Underwater Visual Effects Implementation](#section-2)
