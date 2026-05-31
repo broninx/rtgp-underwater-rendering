@@ -2,7 +2,7 @@
 
 ## Table of Contents
 - [Abstract](#Abstract)
-- [System Overview](#SystemOverview)
+- [System Overview](#System-Overview)
 - [Terrain](#section-2)
 - [Underwater Visual Effects Implementation](#section-2)
 - [Scene Composition](#section-2)
