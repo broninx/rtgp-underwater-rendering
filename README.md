@@ -22,6 +22,17 @@ The code is structured around a central Render object whose public interface fol
 
 ## Terrain
 
+The terrain is generated entirely at runtime using a midpoint-displacement algorithm, stored as a heightmap, and then rendered via a geometry clipmap (geomipmapping) approach with dynamic level-of-detail (LOD) determined by camera distance.
+
+### Heightmap Generation
+The class [`MidpointDispTerrain`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/midpoint_disp.h) derives from [`Terrain`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/terrain.h) and overrides the initialisation to produce a random fractal landscape. The method [`CreateMidpointDisplacement`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/midpoint_disp.cpp#L4-L23) takes a terrain size (which must be a power of two plus one, e.g. 257, 513), a patch size for the subsequent geomip grid, a roughness factor, and min/max height bounds. 
+
+Internally, the algorithm uses a classic square-diamond subdivision. The heightmap is first allocated as a 2D array of floats via Array2D<float>. The recursive subdivision works on a rectangle size that starts as the next power of two above the terrain size. In each iteration, [`DiamondStep`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/midpoint_disp.cpp#L44-L75) computes the centre point of each square by averaging the four corner heights and adding a random offset proportional to the current amplitude (`CurHeight`). [`SquareStep`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/midpoint_disp.cpp#L78-L133) then fills the edge midpoints by averaging the four surrounding diamond points (the centre of the current square and the three neighbours) plus random displacement. 
+
+After each full cycle, the rectangle size is halved and the random amplitude is scaled by $`2^{-Roughness}`$, causing finer details to have smaller perturbations. Once subdivision completes, the heightmap values are normalised linearly into the user-specified min/max range. The base class `Terrain` stores the resulting heightmap and provides bilinear interpolation for smooth height queries at arbitrary world coordinates.
+
+### Geomipmapping and LOD
+The terrain geometry is managed by [`GeomipGrid`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/geomip_grid.h), which implements a discrete LOD scheme based on precomputed triangle strips organised into patches. During initialisation ([`CreateGeomipGrid`](https://github.com/broninx/rtgp-underwater-rendering/blob/main/src/terrain/geomip_grid.cpp#L36-L71)), the grid is divided into a regular array of patches of size $PatchSize × PatchSize$ vertices. The number of patches along each axis is $(Width−1)/(PatchSize−1)$, which must be an integer. The maximum possible LOD level is derived from $log2(PatchSize−1)−1log2(PatchSize−1)−1$, and the LodManager stores that maximum.
 
 ## Underwater Visual Effects Implementation
 
