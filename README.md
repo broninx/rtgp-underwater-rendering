@@ -103,7 +103,5 @@ Performance is evaluated with V‑Sync disabled on a AMD Radeon RX 6600 at 1920 
 | Draw calls per frame (without instancing) | 834 |
 | Draw calls per frame (with instancing) | 7 |
 
-## User Interaction & Camera
-
 ## References
-
+The OpenGL related code is based on the OpenGL tutorial of [Learn Opengl](https://learnopengl.com/), on the lab-lessons of the "Real-Time Graphics Programming Course" and on the YouTube playlist of OGLDEV, [Terrain Rendering](https://www.youtube.com/watch?v=4Rbk6xRzs6g&list=PLA0dXqQjCx0S9qG5dWLsheiCJV-_eLUM0).
