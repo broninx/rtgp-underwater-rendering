@@ -47,7 +47,7 @@ This project implements a real-time underwater scene using OpenGL and C++, relyi
 The implementation relies on OpenGL for rendering, with GLFW v3.4 managing the application window and input, GLAD v0.1.36 handling extension loading, GLM 1.0.0 providing vector and matrix mathematics, Assimp v3.1.1 for importing external 3D models, and stb_image v2.30 for loading texture assets.
 
 ### Application Architecture
-The code is structured around a central Render object whose public interface follows a three-stage lifecycle. The Init method performs all one-time setup—creating the window, compiling shaders, and loading models and textures—and returns a non‑zero integer if any initialisation step fails. The Run method encapsulates the main loop: it clears the framebuffer, updates the scene state based on elapsed time and user input, executes all draw calls, and swaps buffers, repeating this cycle until the user presses the Escape key. When the loop exits, the Render object is destroyed, releasing all allocated graphics resources, and the program terminates cleanly.
+The code is structured around a central Render object whose public interface follows a three stage lifecycle. The Init method performs all one time setup creating the window, compiling shaders, and loading models and textures and returns a non‑zero integer if any initialization step fails. The `Run` method encapsulates the main loop: it clears the framebuffer, updates the scene state based on elapsed time and user input, executes all draw calls, and swaps buffers, repeating this cycle until the user presses the Escape key. When the loop exits, the Render object is destroyed, releasing all allocated graphics resources, and the program terminates cleanly.
 
 ## Terrain
 
