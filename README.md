@@ -44,7 +44,7 @@ This project implements a real-time underwater scene using OpenGL and C++, relyi
 ## System Overview
 
 ### Tool and Libraries
-The implementation relies on OpenGL for rendering, with GLFW managing the application window and input, GLAD handling extension loading, GLM providing vector and matrix mathematics, Assimp for importing external 3D models, and stb_image for loading texture assets.
+The implementation relies on OpenGL for rendering, with GLFW v3.4 managing the application window and input, GLAD v0.1.36 handling extension loading, GLM 1.0.0 providing vector and matrix mathematics, Assimp v3.1.1 for importing external 3D models, and stb_image v2.30 for loading texture assets.
 
 ### Application Architecture
 The code is structured around a central Render object whose public interface follows a three-stage lifecycle. The Init method performs all one-time setup—creating the window, compiling shaders, and loading models and textures—and returns a non‑zero integer if any initialisation step fails. The Run method encapsulates the main loop: it clears the framebuffer, updates the scene state based on elapsed time and user input, executes all draw calls, and swaps buffers, repeating this cycle until the user presses the Escape key. When the loop exits, the Render object is destroyed, releasing all allocated graphics resources, and the program terminates cleanly.
@@ -121,7 +121,13 @@ The god ray fragment shader receives a varying `vUV` where `vUV.y` goes from 0 a
 To add motion, schools of fish are rendered as instanced models. Their positions are spread in a spherical volume; each fish translates along the world Z‑axis at a constant velocity and wraps around when reaching the terrain boundary. This simple behaviour provides continuous, believable movement without complex simulation. The fish are drawn using the same general shader and lighting as static objects, benefiting from the fog and dynamic illumination.
 
 ## Performance 
-Performance is evaluated with V‑Sync disabled on a AMD Radeon RX 6600 at 1920 * 1080.
+All tests were performed on a desktop system with the following configuration: 
+
+- V-Sink: disabled
+- GPU: AMD Radeon RX 6600 at 1920 * 1080 
+- CPU : AMD Ryzen 5 7600X 6-Core Processor
+- Operating System: Pop!_OS 24.04 LTS
+- Display resolution: 1920×1080 
 
 | Descriptor | Value |
 | -------- | -------- |
