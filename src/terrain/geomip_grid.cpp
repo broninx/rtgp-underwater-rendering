@@ -68,6 +68,11 @@ void GeomipGrid::CreateGeomipGrid(int Width, int Depth, int PatchSize, const Ter
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    int trianglesPerPatchLOD0 = m_lodInfo[0].info[0][0][0][0].Count /3 ; // because each quad is two triangles, and each triangle is three indices 
+    int maxTriangles = trianglesPerPatchLOD0 * m_numPatchesX * m_numPatchesZ;
+    printf("Max triangles (LOD 0 all patches): %d\n", trianglesPerPatchLOD0 );
+    printf("Max triangles (LOD 0 all patches): %d\n", maxTriangles);
 }
 
 void GeomipGrid::CreateGLState()

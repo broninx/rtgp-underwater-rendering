@@ -64,6 +64,7 @@ void LodManager::UpdateLodMapPass1(const glm::vec3& CameraPos)
     }
 }
 
+
 void LodManager::UpdateLodMapPass2(const glm::vec3& CameraPos)
 {
     // int Step = m_patchSize / 2;

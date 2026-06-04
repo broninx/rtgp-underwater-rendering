@@ -40,7 +40,10 @@ void MidpointDispTerrain::CreateMidpointDisplacementF32(float Roughness)
     }
 }
 
-
+/*DiamondStep computes the centre point of each square 
+by averaging the four corner heights and 
+adding a random offset proportional 
+to the current amplitude (CurHeight)*/
 void MidpointDispTerrain::DiamondStep(int RectSize, float CurHeight)
 {
     int HalfRectSize = RectSize / 2;
@@ -74,7 +77,10 @@ void MidpointDispTerrain::DiamondStep(int RectSize, float CurHeight)
     }
 }
 
-
+/*SquareStep fills the edge midpoints by averaging 
+the four surrounding diamond points 
+(the centre of the current square and the three 
+neighbours) plus random displacement*/
 void MidpointDispTerrain::SquareStep(int RectSize, float CurHeight)
 {
     /*                ----------------------------------
