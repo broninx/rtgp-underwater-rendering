@@ -1,6 +1,6 @@
 # rtgp-underwater-rendering
 
-## Using
+## Usage
 
 ### Requirements
 - A C++ compiler with C++11 support (GCC, Clang, or MSVC)
